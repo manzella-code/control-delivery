@@ -9,8 +9,8 @@
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.47</title>
-    <link rel="manifest" href="manifest.json?v=1.47">
+    <title>Control Delivery v1.48</title>
+    <link rel="manifest" href="manifest.json?v=1.48">
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -235,7 +235,7 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.47</span>
+        <span>Versión 1.48</span>
         <div class="header-buttons">
             <!-- SELECTOR DE IDIOMA PERSONALIZADO -->
             <div class="custom-dropdown">
@@ -461,9 +461,9 @@
         <div class="modal-card">
             <h2 style="font-size: 1.2rem; margin-bottom: 10px;" data-i18n="modalExcelTitle">Exportar a Excel</h2>
             <p id="excelConfirmText" style="font-size: 0.95rem; color: #64748b; margin-bottom: 15px;" data-i18n="modalExcelDesc">Presione continuar para que su archivo sea grabado en la carpeta de destino (Carpeta de Descargas).</p>
-            <div class="modal-buttons">
+            <div class="modal-buttons" id="excelModalButtons">
                 <button class="btn-secondary" style="margin-top: 0;" onclick="cerrarExcelConfirm()" data-i18n="btnCancel">Cancelar</button>
-                <button class="btn-excel" style="margin-top: 0; margin-bottom:0;" onclick="ejecutarExportarExcel()" data-i18n="btnContinue">Continuar</button>
+                <button class="btn-excel" style="margin-top: 0; margin-bottom:0;" onclick="ejecutarExportarExcel(false)" data-i18n="btnContinue">Continuar</button>
             </div>
         </div>
     </div>
@@ -541,6 +541,8 @@
                 btnContinue: "Continuar",
                 modalExcelTitle: "Exportar a Excel",
                 modalExcelDesc: "Presione continuar para que su archivo sea grabado en la carpeta de destino (Carpeta de Descargas).",
+                btnSuffix: "Agregar Sufijo",
+                btnOverwrite: "Sobrescribir",
                 regExpenseTitle: "Registrar Gasto",
                 regExpenseSub: "Selecciona el tipo e ingresa el monto",
                 optGas: "⛽ Gasolina",
@@ -614,6 +616,8 @@
                 btnContinue: "Continue",
                 modalExcelTitle: "Export to Excel",
                 modalExcelDesc: "Press continue to save your file to the destination folder (Downloads folder).",
+                btnSuffix: "Add Suffix",
+                btnOverwrite: "Overwrite",
                 regExpenseTitle: "Register Expense",
                 regExpenseSub: "Select type and enter amount",
                 optGas: "⛽ Gas",
@@ -657,7 +661,7 @@
                 startWeekLabel: "A semana começa em:",
                 optMon: "Segunda", optTue: "Terça", optWed: "Quarta", optThu: "Quinta", optFri: "Sexta", optSat: "Sábado", optSun: "Domingo",
                 btnSaveConfig: "Salvar Configurações",
-                tabDeliveries: "📦 Entregas", tabExpenses: "⛽ Despesas", tabChart: "📊 Gráfico",
+                tabDeliveries: "📦 Entregas", tabExpenses: "📦 Despesas", tabChart: "📊 Gráfico",
                 regDeliveryTitle: "Registrar Entrega",
                 regDeliverySub: "Insira o valor da entrega",
                 placeholderMonto: "Valor ($)",
@@ -687,6 +691,8 @@
                 btnContinue: "Continuar",
                 modalExcelTitle: "Exportar para Excel",
                 modalExcelDesc: "Pressione continuar para salvar seu arquivo na pasta de destino (Pasta de Downloads).",
+                btnSuffix: "Adicionar Sufixo",
+                btnOverwrite: "Sobrescrever",
                 regExpenseTitle: "Registrar Despesa",
                 regExpenseSub: "Selecione o tipo e insira o valor",
                 optGas: "⛽ Gasolina",
@@ -760,6 +766,8 @@
                 btnContinue: "Continuer",
                 modalExcelTitle: "Exporter vers Excel",
                 modalExcelDesc: "Appuyez sur continuer pour enregistrer votre fichier dans le dossier de destination (Dossier Téléchargements).",
+                btnSuffix: "Ajouter Suffixe",
+                btnOverwrite: "Écraser",
                 regExpenseTitle: "Enregistrer Dépense",
                 regExpenseSub: "Sélectionnez le type et le montant",
                 optGas: "⛽ Essence",
@@ -833,6 +841,8 @@
                 btnContinue: "Continua",
                 modalExcelTitle: "Esporta in Excel",
                 modalExcelDesc: "Premi continua per salvare il file nella cartella di destinazione (Cartella Download).",
+                btnSuffix: "Aggiungi Suffisso",
+                btnOverwrite: "Sovrascrivi",
                 regExpenseTitle: "Registra Spesa",
                 regExpenseSub: "Seleziona tipo e importo",
                 optGas: "⛽ Benzina",
@@ -906,6 +916,8 @@
                 btnContinue: "Weiter",
                 modalExcelTitle: "Nach Excel exportieren",
                 modalExcelDesc: "Klicken Sie auf Weiter, um Ihre Datei im Zielordner (Download-Ordner) zu speichern.",
+                btnSuffix: "Suffix hinzufügen",
+                btnOverwrite: "Überschreiben",
                 regExpenseTitle: "Ausgabe erfassen",
                 regExpenseSub: "Typ wählen und Betrag eingeben",
                 optGas: "⛽ Benzin",
@@ -979,6 +991,8 @@
                 btnContinue: "继续",
                 modalExcelTitle: "导出到 Excel",
                 modalExcelDesc: "点击“继续”将文件保存到目标文件夹（下载文件夹）。",
+                btnSuffix: "添加后缀",
+                btnOverwrite: "覆盖",
                 regExpenseTitle: "登记费用",
                 regExpenseSub: "选择类型并输入金额",
                 optGas: "⛽ 汽油",
@@ -1052,6 +1066,8 @@
                 btnContinue: "続ける",
                 modalExcelTitle: "Excelにエクスポート",
                 modalExcelDesc: "「続ける」を押すと、指定の保存先フォルダ（ダウンロードフォルダ）にファイルが保存されます。",
+                btnSuffix: "接尾辞を追加",
+                btnOverwrite: "上書き",
                 regExpenseTitle: "経費を登録",
                 regExpenseSub: "種類を選んで金額を入力",
                 optGas: "⛽ ガソリン",
@@ -1151,6 +1167,7 @@
         let editandoGastoIndex = null;
         let balanceChart = null;
         let accionPendienteConfirmacion = null;
+        let archivoPendienteExportar = '';
         
         let soundEnabled = localStorage.getItem('soundEnabled') !== 'false';
         
@@ -1338,7 +1355,6 @@
                             const meta = chart.getDatasetMeta(i);
                             meta.data.forEach((bar, index) => {
                                 ctx.save();
-                                // Color oscuro o claro según el modo para garantizar visibilidad total
                                 ctx.fillStyle = isDark ? '#e2e8f0' : '#333333';
                                 ctx.font = 'bold 12px sans-serif';
                                 ctx.textAlign = 'center';
@@ -1347,11 +1363,10 @@
                                 const x = bar.x;
                                 const y = bar.y + (bar.height / 2);
                                 
-                                // Si la barra es 0 o muy pequeña, posicionarla justo encima del eje X
                                 const targetY = bar.height < 25 ? bar.y - 20 : y;
                                 
                                 ctx.translate(x, targetY);
-                                ctx.rotate(-Math.PI / 2); // Orientación vertical
+                                ctx.rotate(-Math.PI / 2);
                                 ctx.fillText(label, 0, 0);
                                 ctx.restore();
                             });
@@ -1822,6 +1837,38 @@
                 cancelarExportar();
                 return;
             }
+
+            const inputNombre = document.getElementById('nombreReporteInput');
+            let nombreUsuario = inputNombre ? inputNombre.value.trim() : "reporte_deliveries";
+            nombreUsuario = nombreUsuario === "" ? "reporte_deliveries" : nombreUsuario;
+            const nombreLimpio = nombreUsuario.replace(/\.csv$/i, '');
+
+            let archivosExportados = [];
+            try { archivosExportados = JSON.parse(localStorage.getItem('archivosExportados')) || []; } catch(e){}
+
+            archivoPendienteExportar = nombreLimpio;
+
+            const modalText = document.getElementById('excelConfirmText');
+            const modalButtons = document.getElementById('excelModalButtons');
+
+            if (archivosExportados.includes(nombreLimpio)) {
+                modalText.innerText = currentLang === 'es' 
+                    ? `Ya has descargado un archivo con el nombre "${nombreLimpio}". ¿Qué deseas hacer?` 
+                    : `You have already downloaded a file named "${nombreLimpio}". What would you like to do?`;
+                
+                modalButtons.innerHTML = `
+                    <button class="btn-secondary" style="margin-top: 0; font-size: 0.9rem;" onclick="cerrarExcelConfirm()">${t('btnCancel')}</button>
+                    <button class="btn-excel" style="margin-top: 0; margin-bottom: 0; font-size: 0.85rem;" onclick="ejecutarExportarExcel(true)">${t('btnSuffix')}</button>
+                    <button class="btn-excel" style="margin-top: 0; margin-bottom: 0; font-size: 0.85rem; background: #3b82f6;" onclick="ejecutarExportarExcel(false)">${t('btnOverwrite')}</button>
+                `;
+            } else {
+                modalText.innerText = t('modalExcelDesc');
+                modalButtons.innerHTML = `
+                    <button class="btn-secondary" style="margin-top: 0;" onclick="cerrarExcelConfirm()" data-i18n="btnCancel">${t('btnCancel')}</button>
+                    <button class="btn-excel" style="margin-top: 0; margin-bottom:0;" onclick="ejecutarExportarExcel(false)" data-i18n="btnContinue">${t('btnContinue')}</button>
+                `;
+            }
+
             document.getElementById('excelConfirmModal').style.display = 'flex';
         }
 
@@ -1829,19 +1876,24 @@
             document.getElementById('excelConfirmModal').style.display = 'none';
         }
 
-        function ejecutarExportarExcel() {
+        function ejecutarExportarExcel(conSufijo) {
             cerrarExcelConfirm();
             
-            const inputNombre = document.getElementById('nombreReporteInput');
-            let nombreUsuario = inputNombre ? inputNombre.value.trim() : "reporte_deliveries";
-            
-            nombreUsuario = nombreUsuario === "" ? "reporte_deliveries" : nombreUsuario;
-            
-            // Timestamp detallado hasta segundos y milisegundos aleatorios para garantizar un nombre 100% único y evitar prompts nativos
-            const ahora = new Date();
-            const timestamp = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}_${String(ahora.getHours()).padStart(2, '0')}${String(ahora.getMinutes()).padStart(2, '0')}${String(ahora.getSeconds()).padStart(2, '0')}_${Math.floor(Math.random() * 1000)}`;
-            const nombreLimpio = nombreUsuario.replace(/\.csv$/i, '');
-            const nombreArchivo = `${nombreLimpio}_${timestamp}.csv`;
+            let nombreLimpio = archivoPendienteExportar || "reporte_deliveries";
+            let nombreArchivo = `${nombreLimpio}.csv`;
+
+            if (conSufijo) {
+                const ahora = new Date();
+                const timestamp = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}_${String(ahora.getHours()).padStart(2, '0')}${String(ahora.getMinutes()).padStart(2, '0')}${String(ahora.getSeconds()).padStart(2, '0')}`;
+                nombreArchivo = `${nombreLimpio}_${timestamp}.csv`;
+            }
+
+            let archivosExportados = [];
+            try { archivosExportados = JSON.parse(localStorage.getItem('archivosExportados')) || []; } catch(e){}
+            if (!archivosExportados.includes(nombreLimpio)) {
+                archivosExportados.push(nombreLimpio);
+                try { localStorage.setItem('archivosExportados', JSON.stringify(archivosExportados)); } catch(e){}
+            }
 
             const deliveriesValidos = datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
             const headerDate = t('thDate');
@@ -1866,7 +1918,7 @@
         }
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=1.47').catch(() => {});
+            navigator.serviceWorker.register('sw.js?v=1.48').catch(() => {});
         }
     </script>
 </body>
