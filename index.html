@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Delivery v1.35</title>
+    <link rel="manifest" href="manifest.json?v=1.35">
+    <meta name="theme-color" content="#ffffff">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; }
+        body { background: #f4f6f8; padding: 15px; color: #333; max-width: 500px; margin: 0 auto; transition: background 0.3s, color 0.3s; }
+        
+        /* PANTALLA DE INICIO (SPLASH SCREEN UNIFICADA) */
+        #splashScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 99999;
+            transition: opacity 0.5s ease;
+        }
+        .splash-icon {
+            font-size: 4.5rem;
+            animation: bounce 1.2s infinite alternate;
+            margin-bottom: 15px;
+        }
+        .splash-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #10b981;
+            letter-spacing: 0.5px;
+        }
+        .splash-subtitle {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-top: 5px;
+        }
+        @keyframes bounce {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-12px); }
+        }
+
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 15px; transition: background 0.3s, border-color 0.3s; }
+        h2 { font-size: 1.1rem; color: #444; margin-bottom: 5px; font-weight: 600; }
+        .subtitle { font-size: 0.8rem; color: #64748b; margin-bottom: 12px; display: block; }
+        .version-badge { font-size: 0.8rem; color: #10b981; margin-bottom: 10px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; padding: 0 5px; }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .stat-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px; text-align: center; transition: background 0.3s, border-color 0.3s; }
+        .stat-box small { display: block; color: #64748b; font-size: 0.8rem; margin-bottom: 2px; }
+        .stat-box strong { font-size: 1.25rem; color: #1e293b; }
+        input, select { width: 100%; padding: 12px; font-size: 1.1rem; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 10px; text-align: center; outline: none; background: white; color: #333; }
+        button { width: 100%; padding: 12px; background: #10b981; color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; }
+        button:active { background: #059669; }
+        .btn-secondary { background: #64748b; margin-top: 5px; }
+        .btn-danger { background: #ef4444; margin-top: 10px; }
+        .btn-print { background: #3b82f6; margin-bottom: 15px; }
+        .btn-excel { background: #107c41; }
+        .btn-link { background: none; color: #64748b; font-size: 0.9rem; margin-top: 5px; border: none; text-decoration: underline; padding: 5px; cursor: pointer; width: 100%; }
+        ul { list-style: none; max-height: 250px; overflow-y: auto; }
+        li { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+        .delivery-info { display: flex; flex-direction: column; }
+        .delivery-info span { font-size: 0.8rem; color: #64748b; }
+        .delivery-info strong { font-size: 1rem; color: #0f172a; }
+        .actions { display: flex; gap: 6px; }
+        .btn-action { padding: 6px 10px; font-size: 0.75rem; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; width: auto; }
+        .btn-edit { background: #3b82f6; color: white; }
+        .btn-delete { background: #ef4444; color: white; }
+        .empty-msg { text-align: center; color: #94a3b8; font-size: 0.9rem; padding: 10px 0; }
+        .breakdown-list { margin-top: 10px; border-top: 1px dashed #e2e8f0; padding-top: 5px; }
+        .breakdown-item { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 6px 0; color: #475569; }
+
+        .app-alert { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 10px; border-radius: 8px; font-size: 0.9rem; margin-bottom: 10px; text-align: center; display: none; }
+        .app-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a; padding: 10px; border-radius: 8px; font-size: 0.9rem; margin-bottom: 10px; text-align: center; display: none; }
+        
+        .tab-container { display: flex; gap: 4px; margin-bottom: 15px; background: #e2e8f0; padding: 4px; border-radius: 10px; }
+        .tab-btn { flex: 1; padding: 8px 4px; background: transparent; border: none; border-radius: 8px; font-weight: bold; color: #64748b; cursor: pointer; font-size: 0.8rem; text-align: center; }
+        .tab-btn.active { background: white; color: #10b981; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; justify-content: center; align-items: center; padding: 20px; }
+        .modal-card { background: white; padding: 20px; border-radius: 12px; width: 100%; max-width: 320px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .modal-buttons { display: flex; gap: 10px; margin-top: 15px; }
+
+        /* MODO OSCURO */
+        [data-theme="dark"] {
+            --bg-color: #121212 !important;
+            --text-color: #e0e0e0 !important;
+            --card-bg: #1e1e1e !important;
+            --border-color: #333333 !important;
+        }
+        [data-theme="dark"] body { background: var(--bg-color); color: var(--text-color); }
+        [data-theme="dark"] #splashScreen { background: #121212; color: #e0e0e0; }
+        [data-theme="dark"] .card, [data-theme="dark"] .modal-card { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); }
+        [data-theme="dark"] h2 { color: #f1f5f9; }
+        [data-theme="dark"] input, [data-theme="dark"] select { background: #2d2d2d; color: #e0e0e0; border-color: #444; }
+        [data-theme="dark"] .stat-box { background: #262626; border-color: #383838; }
+        [data-theme="dark"] .stat-box strong { color: #f8fafc; }
+        [data-theme="dark"] .stat-box small { color: #94a3b8; }
+        [data-theme="dark"] li { border-bottom-color: #2a2a2a; }
+        [data-theme="dark"] .delivery-info strong { color: #f1f5f9; }
+        [data-theme="dark"] .tab-container { background: #262626; }
+        [data-theme="dark"] .tab-btn { color: #94a3b8; }
+        [data-theme="dark"] .tab-btn.active { background: #1e1e1e; color: #34d399; }
+        [data-theme="dark"] .app-alert { background: #451a03; border-color: #78350f; color: #f87171; }
+        [data-theme="dark"] .app-success { background: #064e3b; border-color: #065f46; color: #34d399; }
+
+        .header-buttons { display: flex; gap: 6px; align-items: center; }
+        .theme-toggle { background: none; border: none; font-size: 16px; cursor: pointer; padding: 4px; width: auto; font-weight: bold; color: #10b981; }
+
+        #printHeader, #printHistory { display: none; }
+        .print-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; }
+        .print-table th, .print-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .print-table th { background-color: #f4f6f8; color: #333; }
+
+        @media print {
+            body { background: white; padding: 0; margin: 0; max-width: 100%; color: #000; }
+            #printHeader { display: block; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; text-align: right; }
+            #printHeader h3 { margin: 0; font-size: 1.2rem; color: #000; }
+            #printHeader p { margin: 2px 0 0 0; font-size: 0.9rem; color: #333; }
+            #printHistory { display: block; margin-top: 30px; page-break-before: always; }
+            .card { box-shadow: none; border: 1px solid #ddd; margin-bottom: 15px; page-break-inside: avoid; background: white !important; color: #000 !important; }
+            .tab-container, #formCard, button, .actions, .btn-link, .header-buttons, .tab-content { display: none !important; }
+            #tabDeliveries { display: block !important; }
+            ul { max-height: none; overflow: visible; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- PANTALLA DE INICIO (SPLASH SCREEN UNIFICADA) -->
+    <div id="splashScreen">
+        <div class="splash-icon">🛵</div>
+        <div class="splash-title">Control Delivery</div>
+        <div class="splash-subtitle" data-i18n="splashSub">Cargando aplicación...</div>
+    </div>
+
+    <div class="version-badge">
+        <span>Versión 1.35</span>
+        <div class="header-buttons">
+            <button class="theme-toggle" onclick="toggleLanguage()" id="btnLang" title="Cambiar Idioma / Language">EN</button>
+            <button class="theme-toggle" onclick="toggleSound()" id="btnSound" title="Sonido">🔊</button>
+            <button class="theme-toggle" onclick="toggleDarkMode()" id="btnTheme" title="Modo">🌙</button>
+        </div>
+    </div>
+
+    <!-- PANTALLA DE CONFIGURACIÓN -->
+    <div class="card" id="perfilCard" style="display: none;">
+        <h2 data-i18n="configTitle">Configuración de Perfil</h2>
+        <span class="subtitle" data-i18n="configSub">Ingresa tus datos para los reportes</span>
+        <div id="perfilAlerta" class="app-alert"></div>
+        <input type="text" id="perfilNombre" placeholder="Nombre" data-i18n-ph="placeholderNombre">
+        <input type="text" id="perfilApellido" placeholder="Apellido" data-i18n-ph="placeholderApellido">
+        <input type="text" id="perfilCedula" placeholder="Documento de Identidad" data-i18n-ph="placeholderCedula">
+        
+        <span class="subtitle" style="margin-top:10px; text-align:left;" data-i18n="startWeekLabel">Día que inicia tu semana laboral:</span>
+        <select id="perfilInicioSemana">
+            <option value="1" data-i18n="optMon">Lunes</option>
+            <option value="2" data-i18n="optTue">Martes</option>
+            <option value="3" data-i18n="optWed">Miércoles</option>
+            <option value="4" data-i18n="optThu">Jueves</option>
+            <option value="5" data-i18n="optFri">Viernes</option>
+            <option value="6" data-i18n="optSat">Sábado</option>
+            <option value="0" data-i18n="optSun">Domingo</option>
+        </select>
+        
+        <button onclick="guardarPerfil()" data-i18n="btnSaveConfig">Guardar Configuración</button>
+    </div>
+
+    <!-- APP PRINCIPAL CON 3 PESTAÑAS -->
+    <div id="mainApp" style="display: none;">
+        
+        <div class="tab-container">
+            <button class="tab-btn active" onclick="cambiarPestana('deliveries')" data-i18n="tabDeliveries">📦 Deliveries</button>
+            <button class="tab-btn" onclick="cambiarPestana('gastos')" data-i18n="tabExpenses">⛽ Gastos</button>
+            <button class="tab-btn" onclick="cambiarPestana('grafico')" data-i18n="tabChart">📊 Gráfico</button>
+        </div>
+
+        <!-- ================= PESTAÑA 1: DELIVERIES ================= -->
+        <div id="tabDeliveries" class="tab-content active">
+            <div class="card" id="formCard">
+                <h2 id="formTitle" data-i18n="regDeliveryTitle">Registrar Entrega</h2>
+                <span class="subtitle" data-i18n="regDeliverySub">Ingresa el monto del delivery realizado</span>
+                <div id="deliveryAlerta" class="app-alert"></div>
+                <div id="deliveryExito" class="app-success"></div>
+                <input type="number" id="monto" placeholder="Monto ($)" step="0.01" inputmode="decimal" data-i18n-ph="placeholderMonto">
+                <button id="btnGuardar" onclick="guardarEntrega()" data-i18n="btnAddDelivery">+ Agregar Delivery</button>
+                <button id="btnCancelar" class="btn-secondary" onclick="cancelarEdicion()" style="display: none;" data-i18n="btnCancelEdit">Cancelar Edición</button>
+            </div>
+
+            <div class="card">
+                <h2 data-i18n="todaySummary">Resumen de Hoy</h2>
+                <span class="subtitle" id="fechaHoySub"></span>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <small data-i18n="statDeliveries">Deliveries</small>
+                        <strong id="cantHoy">0</strong>
+                    </div>
+                    <div class="stat-box">
+                        <small data-i18n="statTotalToday">Total Hoy</small>
+                        <strong id="totalHoy">$0.00</strong>
+                    </div>
+                </div>
+                <ul id="listaHoy"></ul>
+            </div>
+
+            <div class="card">
+                <h2 data-i18n="weekSummary">Resumen Semanal</h2>
+                <span class="subtitle" id="rangoSemanaSub">Cargando...</span>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <small data-i18n="statTotalWeek">Total Semana</small>
+                        <strong id="totalSemana">$0.00</strong>
+                    </div>
+                    <div class="stat-box">
+                        <small data-i18n="statDaysWorked">Días Trabajados</small>
+                        <strong id="diasSemana">0</strong>
+                    </div>
+                </div>
+                <button class="btn-danger" onclick="reiniciarPeriodo('semana')" data-i18n="btnResetWeek">Reiniciar Semana</button>
+            </div>
+
+            <div class="card">
+                <h2 data-i18n="monthSummary">Resumen Mensual</h2>
+                <span class="subtitle" id="mesActualSub">Mes en curso</span>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <small data-i18n="statTotalMonth">Total Mes</small>
+                        <strong id="totalMes">$0.00</strong>
+                    </div>
+                    <div class="stat-box">
+                        <small data-i18n="statDaysWorked">Días Trabajados</small>
+                        <strong id="diasMes">0</strong>
+                    </div>
+                </div>
+                <div class="breakdown-list" id="desgloseSemanas"></div>
+                <button class="btn-danger" onclick="reiniciarPeriodo('mes')" data-i18n="btnResetMonth">Reiniciar Mes</button>
+            </div>
+
+            <div class="card">
+                <h2 data-i18n="yearSummary">Resumen Anual</h2>
+                <span class="subtitle" id="anioActualSub">Año en curso</span>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <small data-i18n="statTotalYear">Total Año</small>
+                        <strong id="totalAnio">$0.00</strong>
+                    </div>
+                    <div class="stat-box">
+                        <small data-i18n="statDaysWorked">Días Trabajados</small>
+                        <strong id="diasAnio">0</strong>
+                    </div>
+                </div>
+                <div class="breakdown-list" id="desgloseMeses"></div>
+                <button class="btn-danger" onclick="reiniciarPeriodo('anio')" data-i18n="btnResetYear">Reiniciar Año</button>
+            </div>
+
+            <button class="btn-print" onclick="window.print()" data-i18n="btnPrint">🖨️ Imprimir / Guardar PDF</button>
+            
+            <div class="card" style="background: var(--card-bg); border: 1px solid var(--border-color);">
+                <h2 style="font-size: 1rem; margin-bottom: 5px;" data-i18n="exportExcelTitle">Exportar Reporte a Excel</h2>
+                <button class="btn-excel" id="btnShowExport" onclick="mostrarOpcionesExportar()" data-i18n="btnExportExcel">📊 Exportar a Excel (CSV)</button>
+                
+                <div id="opcionesExportar" style="display: none; margin-top: 10px;">
+                    <span class="subtitle" data-i18n="exportSub">Escribe el nombre que deseas para el archivo:</span>
+                    <input type="text" id="nombreReporteInput" value="reporte_deliveries" placeholder="Nombre del archivo">
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button class="btn-secondary" style="margin-top:0;" onclick="cancelarExportar()" data-i18n="btnCancel">Cancelar</button>
+                        <button class="btn-excel" style="margin-top:0; margin-bottom:0;" onclick="exportarExcel()" data-i18n="btnDownload">Descargar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PESTAÑA 2: GASTOS ================= -->
+        <div id="tabGastos" class="tab-content">
+            <div class="card" id="formGastoCard">
+                <h2 id="formGastoTitle" data-i18n="regExpenseTitle">Registrar Gasto</h2>
+                <span class="subtitle" data-i18n="regExpenseSub">Selecciona el tipo e ingresa el monto</span>
+                <div id="gastoAlerta" class="app-alert"></div>
+                <div id="gastoExito" class="app-success"></div>
+                <select id="tipoGasto">
+                    <option value="gasolina" data-i18n="optGas">⛽ Gasolina</option>
+                    <option value="comida" data-i18n="optFood">🍔 Comida / Snacks</option>
+                </select>
+                <input type="number" id="montoGasto" placeholder="Monto ($)" step="0.01" inputmode="decimal" data-i18n-ph="placeholderMonto">
+                <button id="btnGuardarGasto" onclick="guardarGasto()" data-i18n="btnAddExpense">+ Agregar Gasto</button>
+                <button id="btnCancelarGasto" class="btn-secondary" onclick="cancelarEdicionGasto()" style="display: none;" data-i18n="btnCancelEdit">Cancelar Edición</button>
+            </div>
+
+            <div class="card">
+                <h2 data-i18n="todayExpenses">Gastos de Hoy</h2>
+                <span class="subtitle" id="fechaGastoHoySub"></span>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <small data-i18n="statGasToday">Gasolina Hoy</small>
+                        <strong id="totalGasHoy" style="color:#ef4444;">$0.00</strong>
+                    </div>
+                    <div class="stat-box">
+                        <small data-i18n="statFoodToday">Comida Hoy</small>
+                        <strong id="totalComidaHoy" style="color:#f59e0b;">$0.00</strong>
+                    </div>
+                </div>
+                <ul id="listaGastosHoy"></ul>
+            </div>
+
+            <div class="card">
+                <h2 data-i18n="weekExpenses">Resumen Semanal de Gastos</h2>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <small data-i18n="statGasWeek">Gasolina Semana</small>
+                        <strong id="totalGasSemana" style="color:#ef4444;">$0.00</strong>
+                    </div>
+                    <div class="stat-box">
+                        <small data-i18n="statFoodWeek">Comida Semana</small>
+                        <strong id="totalComidaSemana" style="color:#f59e0b;">$0.00</strong>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2 data-i18n="monthExpenses">Resumen Mensual de Gastos</h2>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <small data-i18n="statGasMonth">Gasolina Mes</small>
+                        <strong id="totalGasMes" style="color:#ef4444;">$0.00</strong>
+                    </div>
+                    <div class="stat-box">
+                        <small data-i18n="statFoodMonth">Comida Mes</small>
+                        <strong id="totalComidaMes" style="color:#f59e0b;">$0.00</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PESTAÑA 3: GRÁFICO ================= -->
+        <div id="tabGrafico" class="tab-content">
+            <div class="card">
+                <h2 data-i18n="chartTitle">Balance Visual de Hoy</h2>
+                <span class="subtitle" data-i18n="chartSub">Ganancias vs Gasolina y Comidas</span>
+                <div style="position: relative; height: 280px; width: 100%;">
+                    <canvas id="balanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn-link" onclick="editarPerfil()" data-i18n="btnEditProfile">⚙️ Modificar Configuración de Perfil</button>
+    </div>
+
+    <!-- MODAL DE CONFIRMACIÓN INTERNO -->
+    <div class="modal-overlay" id="customConfirmModal">
+        <div class="modal-card">
+            <h2 style="font-size: 1.2rem; margin-bottom: 10px;" data-i18n="modalConfirmTitle">Confirmación</h2>
+            <p id="customConfirmText" style="font-size: 0.95rem; color: #64748b; margin-bottom: 15px;"></p>
+            <div class="modal-buttons">
+                <button class="btn-secondary" style="margin-top: 0;" onclick="cerrarCustomConfirm()" data-i18n="btnCancel">Cancelar</button>
+                <button class="btn-danger" style="margin-top: 0;" onclick="ejecutarCustomConfirm()" data-i18n="btnAccept">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ZONA DE IMPRESIÓN OCULTA -->
+    <div id="printHeader">
+        <h3 id="printNombreCompleto"></h3>
+        <p id="printDocIdentidad"></p>
+        <p id="printTotalDeliveries"></p>
+    </div>
+    <div id="printHistory">
+        <h2 style="margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;" data-i18n="printListTitle">Listado de Todas las Transacciones</h2>
+        <table class="print-table">
+            <thead>
+                <tr>
+                    <th data-i18n="thDate">Fecha</th>
+                    <th data-i18n="thTime">Hora</th>
+                    <th data-i18n="thAmount">Monto</th>
+                </tr>
+            </thead>
+            <tbody id="printHistoryBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        const translations = {
+            es: {
+                configTitle: "Configuración de Perfil",
+                configSub: "Ingresa tus datos para los reportes",
+                placeholderNombre: "Nombre",
+                placeholderApellido: "Apellido",
+                placeholderCedula: "Documento de Identidad",
+                startWeekLabel: "Día que inicia tu semana laboral:",
+                optMon: "Lunes", optTue: "Martes", optWed: "Miércoles", optThu: "Jueves", optFri: "Viernes", optSat: "Sábado", optSun: "Domingo",
+                btnSaveConfig: "Guardar Configuración",
+                tabDeliveries: "📦 Deliveries", tabExpenses: "⛽ Gastos", tabChart: "📊 Gráfico",
+                regDeliveryTitle: "Registrar Entrega",
+                regDeliverySub: "Ingresa el monto del delivery realizado",
+                placeholderMonto: "Monto ($)",
+                btnAddDelivery: "+ Agregar Delivery",
+                btnEditDelivery: "Guardar Cambios",
+                btnCancelEdit: "Cancelar Edición",
+                todaySummary: "Resumen de Hoy",
+                statDeliveries: "Deliveries",
+                statTotalToday: "Total Hoy",
+                weekSummary: "Resumen Semanal",
+                statTotalWeek: "Total Semana",
+                statDaysWorked: "Días Trabajados",
+                btnResetWeek: "Reiniciar Semana",
+                monthSummary: "Resumen Mensual",
+                statTotalMonth: "Total Mes",
+                btnResetMonth: "Reiniciar Mes",
+                yearSummary: "Resumen Anual",
+                statTotalYear: "Total Año",
+                btnResetYear: "Reiniciar Año",
+                btnPrint: "🖨️ Imprimir / Guardar PDF",
+                exportExcelTitle: "Exportar Reporte a Excel",
+                btnExportExcel: "📊 Exportar a Excel (CSV)",
+                exportSub: "Escribe el nombre que deseas para el archivo:",
+                btnCancel: "Cancelar",
+                btnDownload: "Descargar",
+                regExpenseTitle: "Registrar Gasto",
+                regExpenseSub: "Selecciona el tipo e ingresa el monto",
+                optGas: "⛽ Gasolina",
+                optFood: "🍔 Comida / Snacks",
+                btnAddExpense: "+ Agregar Gasto",
+                todayExpenses: "Gastos de Hoy",
+                statGasToday: "Gasolina Hoy",
+                statFoodToday: "Comida Hoy",
+                weekExpenses: "Resumen Semanal de Gastos",
+                statGasWeek: "Gasolina Semana",
+                statFoodWeek: "Comida Semana",
+                monthExpenses: "Resumen Mensual de Gastos",
+                statGasMonth: "Gasolina Mes",
+                statFoodMonth: "Comida Mes",
+                chartTitle: "Balance Visual de Hoy",
+                chartSub: "Ganancias vs Gasolina y Comidas",
+                btnEditProfile: "⚙️ Modificar Configuración de Perfil",
+                modalConfirmTitle: "Confirmación",
+                btnAccept: "Aceptar",
+                printListTitle: "Listado de Todas las Transacciones",
+                thDate: "Fecha", thTime: "Hora", thAmount: "Monto",
+                msgInvalidAmount: "Ingresa un monto válido",
+                msgInvalidExpense: "Ingresa un monto válido para el gasto",
+                msgInvalidProfile: "Por favor, ingresa tu Nombre y Documento",
+                msgNoDataExport: "No hay datos suficientes para exportar.",
+                msgNoDeliveriesToday: "No has registrado deliveries hoy",
+                msgNoExpensesToday: "No has registrado gastos hoy",
+                msgNoDeliveriesHistory: "No hay deliveries registrados",
+                confirmDeleteDelivery: "¿Estás seguro de eliminar este registro de delivery?",
+                confirmDeleteExpense: "¿Estás seguro de eliminar este gasto registrado?",
+                confirmResetWeek: "¿Estás seguro de reiniciar los datos de la semana?",
+                confirmResetMonth: "¿Estás seguro de reiniciar los datos del mes?",
+                confirmResetYear: "¿Estás seguro de reiniciar los datos del año?",
+                splashSub: "Cargando aplicación..."
+            },
+            en: {
+                configTitle: "Profile Setup",
+                configSub: "Enter your info for reports",
+                placeholderNombre: "First Name",
+                placeholderApellido: "Last Name",
+                placeholderCedula: "ID / Document",
+                startWeekLabel: "Work week starts on:",
+                optMon: "Monday", optTue: "Tuesday", optWed: "Wednesday", optThu: "Thursday", optFri: "Friday", optSat: "Saturday", optSun: "Sunday",
+                btnSaveConfig: "Save Settings",
+                tabDeliveries: "📦 Deliveries", tabExpenses: "⛽ Expenses", tabChart: "📊 Chart",
+                regDeliveryTitle: "Register Delivery",
+                regDeliverySub: "Enter the delivery amount",
+                placeholderMonto: "Amount ($)",
+                btnAddDelivery: "+ Add Delivery",
+                btnEditDelivery: "Save Changes",
+                btnCancelEdit: "Cancel Edit",
+                todaySummary: "Today's Summary",
+                statDeliveries: "Deliveries",
+                statTotalToday: "Today's Total",
+                weekSummary: "Weekly Summary",
+                statTotalWeek: "Week Total",
+                statDaysWorked: "Days Worked",
+                btnResetWeek: "Reset Week",
+                monthSummary: "Monthly Summary",
+                statTotalMonth: "Month Total",
+                btnResetMonth: "Reset Month",
+                yearSummary: "Yearly Summary",
+                statTotalYear: "Year Total",
+                statDaysWorked: "Days Worked",
+                btnResetYear: "Reset Year",
+                btnPrint: "🖨️ Print / Save PDF",
+                exportExcelTitle: "Export Report to Excel",
+                btnExportExcel: "📊 Export to Excel (CSV)",
+                exportSub: "Enter file name:",
+                btnCancel: "Cancel",
+                btnDownload: "Download",
+                regExpenseTitle: "Register Expense",
+                regExpenseSub: "Select type and enter amount",
+                optGas: "⛽ Gas",
+                optFood: "🍔 Food / Snacks",
+                btnAddExpense: "+ Add Expense",
+                todayExpenses: "Today's Expenses",
+                statGasToday: "Gas Today",
+                statFoodToday: "Food Today",
+                weekExpenses: "Weekly Expenses Summary",
+                statGasWeek: "Gas Week",
+                statFoodWeek: "Food Week",
+                monthExpenses: "Monthly Expenses Summary",
+                statGasMonth: "Gas Month",
+                statFoodMonth: "Food Month",
+                chartTitle: "Today's Visual Balance",
+                chartSub: "Earnings vs Gas & Food",
+                btnEditProfile: "⚙️ Edit Profile Settings",
+                modalConfirmTitle: "Confirmation",
+                btnAccept: "Accept",
+                printListTitle: "List of All Transactions",
+                thDate: "Date", thTime: "Time", thAmount: "Amount",
+                msgInvalidAmount: "Enter a valid amount",
+                msgInvalidExpense: "Enter a valid amount for expense",
+                msgInvalidProfile: "Please enter your Name and ID",
+                msgNoDataExport: "Not enough data to export.",
+                msgNoDeliveriesToday: "No deliveries registered today",
+                msgNoExpensesToday: "No expenses registered today",
+                msgNoDeliveriesHistory: "No deliveries registered",
+                confirmDeleteDelivery: "Are you sure you want to delete this delivery record?",
+                confirmDeleteExpense: "Are you sure you want to delete this expense record?",
+                confirmResetWeek: "Are you sure you want to reset this week's data?",
+                confirmResetMonth: "Are you sure you want to reset this month's data?",
+                confirmResetYear: "Are you sure you want to reset this year's data?",
+                splashSub: "Loading application..."
+            }
+        };
+
+        let currentLang = localStorage.getItem('appLang') || 'es';
+
+        function t(key) {
+            return translations[currentLang][key] || key;
+        }
+
+        function applyLanguage() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                el.innerText = t(key);
+            });
+            document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+                const key = el.getAttribute('data-i18n-ph');
+                el.placeholder = t(key);
+            });
+            document.getElementById('btnLang').textContent = currentLang === 'es' ? 'EN' : 'ES';
+        }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'es' ? 'en' : 'es';
+            localStorage.setItem('appLang', currentLang);
+            applyLanguage();
+            actualizarInterfaz();
+        }
+
+        let datos = [];
+        try { datos = JSON.parse(localStorage.getItem('deliveryData')) || []; } catch(e) {}
+        
+        let perfil = null;
+        try { perfil = JSON.parse(localStorage.getItem('deliveryProfile')) || null; } catch(e) {}
+
+        let editandoIndex = null;
+        let editandoGastoIndex = null;
+        let balanceChart = null;
+        let accionPendienteConfirmacion = null;
+        
+        let soundEnabled = localStorage.getItem('soundEnabled') !== 'false';
+        
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('btnSound').textContent = soundEnabled ? '🔊' : '🔇';
+            applyLanguage();
+
+            setTimeout(() => {
+                const splash = document.getElementById('splashScreen');
+                splash.style.opacity = '0';
+                setTimeout(() => {
+                    splash.style.display = 'none';
+                    verificarPerfil();
+                }, 500);
+            }, 2000);
+        });
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            localStorage.setItem('soundEnabled', soundEnabled);
+            document.getElementById('btnSound').textContent = soundEnabled ? '🔊' : '🔇';
+        }
+
+        function playCoinSound() {
+            if (!soundEnabled) return;
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioContext();
+                
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(987.77, ctx.currentTime); 
+                gain1.gain.setValueAtTime(0.5, ctx.currentTime);
+                gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(ctx.currentTime);
+                osc1.stop(ctx.currentTime + 0.1);
+                
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(1318.51, ctx.currentTime + 0.1); 
+                gain2.gain.setValueAtTime(0.5, ctx.currentTime + 0.1);
+                gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(ctx.currentTime + 0.1);
+                osc2.stop(ctx.currentTime + 0.4);
+            } catch(e) { console.log("Audio no soportado"); }
+        }
+
+        function mostrarMensaje(elementId, texto, esError = true) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            el.innerText = texto;
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 3500);
+        }
+
+        function abrirCustomConfirm(mensaje, accion) {
+            document.getElementById('customConfirmText').innerText = mensaje;
+            accionPendienteConfirmacion = accion;
+            document.getElementById('customConfirmModal').style.display = 'flex';
+        }
+
+        function cerrarCustomConfirm() {
+            document.getElementById('customConfirmModal').style.display = 'none';
+            accionPendienteConfirmacion = null;
+        }
+
+        function ejecutarCustomConfirm() {
+            const accion = accionPendienteConfirmacion;
+            cerrarCustomConfirm();
+            if (accion) { accion(); }
+        }
+
+        function cambiarPestana(pestana) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            if (pestana === 'deliveries') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('tabDeliveries').classList.add('active');
+            } else if (pestana === 'gastos') {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('tabGastos').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab-btn')[2].classList.add('active');
+                document.getElementById('tabGrafico').classList.add('active');
+                actualizarGraficoBalance();
+            }
+        }
+
+        function inicializarGrafico() {
+            const ctx = document.getElementById('balanceChart').getContext('2d');
+            balanceChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: currentLang === 'es' ? ['Ganancias', 'Gasolina', 'Comidas/Snacks'] : ['Earnings', 'Gas', 'Food/Snacks'],
+                    datasets: [{
+                        label: 'Monto ($)',
+                        data: [0, 0, 0],
+                        backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+
+        function verificarPerfil() {
+            if (!perfil || !perfil.nombre || !perfil.cedula) {
+                document.getElementById('perfilCard').style.display = 'block';
+                document.getElementById('mainApp').style.display = 'none';
+            } else {
+                document.getElementById('perfilCard').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'block';
+                inicializarGrafico();
+                actualizarInterfaz();
+            }
+        }
+
+        function guardarPerfil() {
+            const nom = document.getElementById('perfilNombre').value.trim();
+            const ape = document.getElementById('perfilApellido').value.trim();
+            const doc = document.getElementById('perfilCedula').value.trim();
+            const inicio = document.getElementById('perfilInicioSemana').value;
+
+            if (!nom || !doc) {
+                mostrarMensaje('perfilAlerta', t('msgInvalidProfile'));
+                return;
+            }
+
+            perfil = { nombre: nom, apellido: ape, cedula: doc, inicioSemana: parseInt(inicio) };
+            try { localStorage.setItem('deliveryProfile', JSON.stringify(perfil)); } catch (error) {}
+            window.location.reload();
+        }
+
+        function editarPerfil() {
+            if (perfil) {
+                document.getElementById('perfilNombre').value = perfil.nombre || '';
+                document.getElementById('perfilApellido').value = perfil.apellido || '';
+                document.getElementById('perfilCedula').value = perfil.cedula || '';
+                document.getElementById('perfilInicioSemana').value = perfil.inicioSemana ?? 1;
+            }
+            document.getElementById('perfilCard').style.display = 'block';
+            document.getElementById('mainApp').style.display = 'none';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function formatearFechaISO(d) {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        function formatDDMMYYYY(dateObj) {
+            const dd = String(dateObj.getDate()).padStart(2, '0');
+            const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const yyyy = dateObj.getFullYear();
+            return `${dd}/${mm}/${yyyy}`;
+        }
+
+        function obtenerFechaSegura(d) {
+            if (d.fechaTexto && !d.fechaTexto.includes('undefined')) return d.fechaTexto;
+            const [y, m, day] = d.fecha.split('-');
+            return `${parseInt(day)}/${parseInt(m)}/${y}`;
+        }
+
+        function guardarEntrega() {
+            const input = document.getElementById('monto');
+            const monto = parseFloat(input.value);
+            if (!monto || monto <= 0) {
+                mostrarMensaje('deliveryAlerta', t('msgInvalidAmount'));
+                return;
+            }
+
+            if (editandoIndex !== null) {
+                datos[editandoIndex].monto = monto;
+                cancelarEdicion();
+            } else {
+                const ahora = new Date();
+                datos.push({
+                    id: Date.now(),
+                    tipo: 'delivery',
+                    monto,
+                    fecha: formatearFechaISO(ahora),
+                    fechaTexto: formatDDMMYYYY(ahora),
+                    hora: ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                    periodoSemana: true,
+                    periodoMes: true,
+                    periodoAnio: true
+                });
+                playCoinSound();
+            }
+
+            try { localStorage.setItem('deliveryData', JSON.stringify(datos)); } catch(e) {}
+            input.value = '';
+            actualizarInterfaz();
+        }
+
+        function editarEntrega(index) {
+            editandoIndex = index;
+            document.getElementById('monto').value = datos[index].monto;
+            document.getElementById('formTitle').innerText = currentLang === 'es' ? 'Editar Entrega' : 'Edit Delivery';
+            document.getElementById('btnGuardar').innerText = t('btnEditDelivery');
+            document.getElementById('btnCancelar').style.display = 'block';
+            cambiarPestana('deliveries');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function cancelarEdicion() {
+            editandoIndex = null;
+            document.getElementById('monto').value = '';
+            document.getElementById('formTitle').innerText = t('regDeliveryTitle');
+            document.getElementById('btnGuardar').innerText = t('btnAddDelivery');
+            document.getElementById('btnCancelar').style.display = 'none';
+        }
+
+        function eliminarEntrega(index) {
+            abrirCustomConfirm(t('confirmDeleteDelivery'), () => {
+                if (editandoIndex === index) cancelarEdicion();
+                datos.splice(index, 1);
+                try { localStorage.setItem('deliveryData', JSON.stringify(datos)); } catch(e) {}
+                actualizarInterfaz();
+            });
+        }
+
+        function guardarGasto() {
+            const tipoGasto = document.getElementById('tipoGasto').value;
+            const input = document.getElementById('montoGasto');
+            const monto = parseFloat(input.value);
+            if (!monto || monto <= 0) {
+                mostrarMensaje('gastoAlerta', t('msgInvalidExpense'));
+                return;
+            }
+
+            if (editandoGastoIndex !== null) {
+                datos[editandoGastoIndex].monto = monto;
+                datos[editandoGastoIndex].tipoGasto = tipoGasto;
+                cancelarEdicionGasto();
+            } else {
+                const ahora = new Date();
+                datos.push({
+                    id: Date.now(),
+                    tipo: 'gasto',
+                    tipoGasto: tipoGasto,
+                    monto,
+                    fecha: formatearFechaISO(ahora),
+                    fechaTexto: formatDDMMYYYY(ahora),
+                    hora: ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                    periodoSemana: true,
+                    periodoMes: true,
+                    periodoAnio: true
+                });
+            }
+
+            try { localStorage.setItem('deliveryData', JSON.stringify(datos)); } catch(e) {}
+            input.value = '';
+            actualizarInterfaz();
+        }
+
+        function editarGasto(index) {
+            editandoGastoIndex = index;
+            document.getElementById('tipoGasto').value = datos[index].tipoGasto || 'gasolina';
+            document.getElementById('montoGasto').value = datos[index].monto;
+            document.getElementById('formGastoTitle').innerText = currentLang === 'es' ? 'Editar Gasto' : 'Edit Expense';
+            document.getElementById('btnGuardarGasto').innerText = t('btnEditDelivery');
+            document.getElementById('btnCancelarGasto').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function cancelarEdicionGasto() {
+            editandoGastoIndex = null;
+            document.getElementById('montoGasto').value = '';
+            document.getElementById('formGastoTitle').innerText = t('regExpenseTitle');
+            document.getElementById('btnGuardarGasto').innerText = t('btnAddExpense');
+            document.getElementById('btnCancelarGasto').style.display = 'none';
+        }
+
+        function eliminarGasto(index) {
+            abrirCustomConfirm(t('confirmDeleteExpense'), () => {
+                if (editandoGastoIndex === index) cancelarEdicionGasto();
+                datos.splice(index, 1);
+                try { localStorage.setItem('deliveryData', JSON.stringify(datos)); } catch(e) {}
+                actualizarInterfaz();
+            });
+        }
+
+        function actualizarGraficoBalance() {
+            if (!balanceChart) return;
+            const hoyStr = formatearFechaISO(new Date());
+            
+            let sumaHoy = 0;
+            let gasHoy = 0;
+            let comidaHoy = 0;
+
+            datos.forEach(d => {
+                if (d.fecha === hoyStr && d.periodoSemana) {
+                    if (d.tipo !== 'gasto' && d.monto > 0) sumaHoy += d.monto;
+                    if (d.tipo === 'gasto') {
+                        if (d.tipoGasto === 'gasolina') gasHoy += d.monto;
+                        if (d.tipoGasto === 'comida') comidaHoy += d.monto;
+                    }
+                }
+            });
+
+            balanceChart.data.labels = currentLang === 'es' ? ['Ganancias', 'Gasolina', 'Comidas/Snacks'] : ['Earnings', 'Gas', 'Food/Snacks'];
+            balanceChart.data.datasets[0].data = [sumaHoy, gasHoy, comidaHoy];
+            balanceChart.update();
+        }
+
+        function actualizarInterfaz() {
+            if (!perfil) return;
+
+            document.getElementById('printNombreCompleto').innerText = `${perfil.nombre} ${perfil.apellido}`.trim();
+            document.getElementById('printDocIdentidad').innerText = `ID: ${perfil.cedula}`;
+            
+            const deliveriesValidos = datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
+            const totalText = currentLang === 'es' ? 'Total Histórico de Deliveries:' : 'Total Historical Deliveries:';
+            document.getElementById('printTotalDeliveries').innerText = `${totalText} ${deliveriesValidos.length}`;
+
+            const historyBody = document.getElementById('printHistoryBody');
+            historyBody.innerHTML = '';
+            if (deliveriesValidos.length === 0) {
+                historyBody.innerHTML = `<tr><td colspan="3" style="text-align:center;">${t('msgNoDeliveriesHistory')}</td></tr>`;
+            } else {
+                [...deliveriesValidos].reverse().forEach(d => {
+                    historyBody.innerHTML += `
+                        <tr>
+                            <td>${obtenerFechaSegura(d)}</td>
+                            <td>${d.hora}</td>
+                            <td>$${d.monto.toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            const hoyObj = new Date();
+            const hoyStr = formatearFechaISO(hoyObj);
+            const localeStr = currentLang === 'es' ? 'es-ES' : 'en-US';
+            const fechaTextoLegible = hoyObj.toLocaleDateString(localeStr, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            
+            document.getElementById('fechaHoySub').innerText = fechaTextoLegible;
+            document.getElementById('fechaGastoHoySub').innerText = fechaTextoLegible;
+
+            const entregasHoyIndex = [];
+            datos.forEach((d, idx) => {
+                if (d.fecha === hoyStr && d.periodoSemana && d.tipo !== 'gasto' && d.monto > 0) entregasHoyIndex.push(idx);
+            });
+
+            document.getElementById('cantHoy').innerText = entregasHoyIndex.length;
+            const sumaHoy = entregasHoyIndex.reduce((acc, idx) => acc + datos[idx].monto, 0);
+            document.getElementById('totalHoy').innerText = `$${sumaHoy.toFixed(2)}`;
+
+            const lista = document.getElementById('listaHoy');
+            lista.innerHTML = '';
+            if (entregasHoyIndex.length === 0) {
+                lista.innerHTML = `<div class="empty-msg">${t('msgNoDeliveriesToday')}</div>`;
+            } else {
+                [...entregasHoyIndex].reverse().forEach(idx => {
+                    const e = datos[idx];
+                    const editTxt = currentLang === 'es' ? 'Editar' : 'Edit';
+                    const delTxt = currentLang === 'es' ? 'Borrar' : 'Delete';
+                    const dateLbl = currentLang === 'es' ? 'Fecha' : 'Date';
+                    const timeLbl = currentLang === 'es' ? 'Hora' : 'Time';
+                    lista.innerHTML += `
+                        <li>
+                            <div class="delivery-info">
+                                <strong>$${e.monto.toFixed(2)}</strong>
+                                <span>${dateLbl}: ${obtenerFechaSegura(e)} | ${timeLbl}: ${e.hora}</span>
+                            </div>
+                            <div class="actions">
+                                <button class="btn-action btn-edit" onclick="editarEntrega(${idx})">${editTxt}</button>
+                                <button class="btn-action btn-delete" onclick="eliminarEntrega(${idx})">${delTxt}</button>
+                            </div>
+                        </li>`;
+                });
+            }
+
+            const gastosHoyIndex = [];
+            let gasHoyTotal = 0;
+            let comidaHoyTotal = 0;
+            datos.forEach((d, idx) => {
+                if (d.fecha === hoyStr && d.tipo === 'gasto' && d.periodoSemana) {
+                    gastosHoyIndex.push(idx);
+                    if (d.tipoGasto === 'gasolina') gasHoyTotal += d.monto;
+                    if (d.tipoGasto === 'comida') comidaHoyTotal += d.monto;
+                }
+            });
+
+            document.getElementById('totalGasHoy').innerText = `$${gasHoyTotal.toFixed(2)}`;
+            document.getElementById('totalComidaHoy').innerText = `$${comidaHoyTotal.toFixed(2)}`;
+
+            const listaGastos = document.getElementById('listaGastosHoy');
+            listaGastos.innerHTML = '';
+            if (gastosHoyIndex.length === 0) {
+                listaGastos.innerHTML = `<div class="empty-msg">${t('msgNoExpensesToday')}</div>`;
+            } else {
+                [...gastosHoyIndex].reverse().forEach(idx => {
+                    const g = datos[idx];
+                    let etiqueta = g.tipoGasto === 'gasolina' ? (currentLang === 'es' ? '⛽ Gasolina' : '⛽ Gas') : (currentLang === 'es' ? '🍔 Comida' : '🍔 Food');
+                    const editTxt = currentLang === 'es' ? 'Editar' : 'Edit';
+                    const delTxt = currentLang === 'es' ? 'Borrar' : 'Delete';
+                    const dateLbl = currentLang === 'es' ? 'Fecha' : 'Date';
+                    const timeLbl = currentLang === 'es' ? 'Hora' : 'Time';
+                    listaGastos.innerHTML += `
+                        <li>
+                            <div class="delivery-info">
+                                <strong>${etiqueta}: $${g.monto.toFixed(2)}</strong>
+                                <span>${dateLbl}: ${obtenerFechaSegura(g)} | ${timeLbl}: ${g.hora}</span>
+                            </div>
+                            <div class="actions">
+                                <button class="btn-action btn-edit" onclick="editarGasto(${idx})">${editTxt}</button>
+                                <button class="btn-action btn-delete" onclick="eliminarGasto(${idx})">${delTxt}</button>
+                            </div>
+                        </li>`;
+                });
+            }
+
+            const diaInicioConfig = perfil.inicioSemana; 
+            const hoyBase = new Date(hoyObj.getFullYear(), hoyObj.getMonth(), hoyObj.getDate());
+            const dayOffset = (hoyBase.getDay() - diaInicioConfig + 7) % 7;
+            
+            const startOfWeek = new Date(hoyBase);
+            startOfWeek.setDate(hoyBase.getDate() - dayOffset);
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+            const weekLbl = currentLang === 'es' ? 'Semana' : 'Week';
+            document.getElementById('rangoSemanaSub').innerText = `${weekLbl} (${formatDDMMYYYY(startOfWeek)} al ${formatDDMMYYYY(endOfWeek)})`;
+
+            const entregasSemana = datos.filter(d => d.periodoSemana && d.tipo !== 'gasto' && d.monto > 0);
+            document.getElementById('totalSemana').innerText = `$${entregasSemana.reduce((a, b) => a + b.monto, 0).toFixed(2)}`;
+            document.getElementById('diasSemana').innerText = new Set(entregasSemana.map(d => d.fecha)).size;
+
+            const nombreMes = hoyObj.toLocaleDateString(localeStr, { month: 'long', year: 'numeric' });
+            document.getElementById('mesActualSub').innerText = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1);
+
+            const entregasMes = datos.filter(d => d.periodoMes && d.tipo !== 'gasto' && d.monto > 0);
+            document.getElementById('totalMes').innerText = `$${entregasMes.reduce((a, b) => a + b.monto, 0).toFixed(2)}`;
+            document.getElementById('diasMes').innerText = new Set(entregasMes.map(d => d.fecha)).size;
+
+            const desgloseSemanasEl = document.getElementById('desgloseSemanas');
+            desgloseSemanasEl.innerHTML = '';
+            const gruposSemana = {};
+            entregasMes.forEach(d => {
+                const [y, m, day] = d.fecha.split('-');
+                const dateObj = new Date(y, m - 1, day);
+                const dOffset = (dateObj.getDay() - diaInicioConfig + 7) % 7;
+                const sun = new Date(dateObj);
+                sun.setDate(dateObj.getDate() - dOffset);
+                const weekId = sun.getTime();
+                if (!gruposSemana[weekId]) {
+                    const sat = new Date(sun);
+                    sat.setDate(sun.getDate() + 6);
+                    gruposSemana[weekId] = { minDate: sun, satDate: sat, total: 0 };
+                }
+                gruposSemana[weekId].total += d.monto;
+            });
+            Object.keys(gruposSemana).sort((a,b) => a - b).forEach(weekId => {
+                const grupo = gruposSemana[weekId];
+                desgloseSemanasEl.innerHTML += `
+                    <div class="breakdown-item">
+                        <span>${weekLbl} (${formatDDMMYYYY(grupo.minDate)} - ${formatDDMMYYYY(grupo.satDate)}):</span>
+                        <strong>$${grupo.total.toFixed(2)}</strong>
+                    </div>`;
+            });
+
+            const yearLbl = currentLang === 'es' ? 'Año' : 'Year';
+            document.getElementById('anioActualSub').innerText = `${yearLbl} ${hoyObj.getFullYear()}`;
+            const entregasAnio = datos.filter(d => d.periodoAnio && d.tipo !== 'gasto' && d.monto > 0);
+            document.getElementById('totalAnio').innerText = `$${entregasAnio.reduce((a, b) => a + b.monto, 0).toFixed(2)}`;
+            document.getElementById('diasAnio').innerText = new Set(entregasAnio.map(d => d.fecha)).size;
+
+            const desgloseMesesEl = document.getElementById('desgloseMeses');
+            desgloseMesesEl.innerHTML = '';
+            const nombresMeses = currentLang === 'es' ? ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] : ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            const mesesMap = {};
+            entregasAnio.forEach(d => {
+                const [, mStr] = d.fecha.split('-');
+                const mIndex = parseInt(mStr, 10) - 1;
+                mesesMap[mIndex] = (mesesMap[mIndex] || 0) + d.monto;
+            });
+            Object.keys(mesesMap).sort((a,b) => a - b).forEach(mIndex => {
+                desgloseMesesEl.innerHTML += `
+                    <div class="breakdown-item">
+                        <span>${nombresMeses[mIndex]}:</span>
+                        <strong>$${mesesMap[mIndex].toFixed(2)}</strong>
+                    </div>`;
+            });
+
+            const gastosSemana = datos.filter(d => d.periodoSemana && d.tipo === 'gasto');
+            document.getElementById('totalGasSemana').innerText = `$${gastosSemana.filter(d=>d.tipoGasto==='gasolina').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
+            document.getElementById('totalComidaSemana').innerText = `$${gastosSemana.filter(d=>d.tipoGasto==='comida').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
+
+            const gastosMes = datos.filter(d => d.periodoMes && d.tipo === 'gasto');
+            document.getElementById('totalGasMes').innerText = `$${gastosMes.filter(d=>d.tipoGasto==='gasolina').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
+            document.getElementById('totalComidaMes').innerText = `$${gastosMes.filter(d=>d.tipoGasto==='comida').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
+
+            actualizarGraficoBalance();
+        }
+
+        function reiniciarPeriodo(tipo) {
+            const nombres = { 
+                semana: t('confirmResetWeek'), 
+                mes: t('confirmResetMonth'), 
+                anio: t('confirmResetYear') 
+            };
+            abrirCustomConfirm(nombres[tipo], () => {
+                datos = datos.map(item => {
+                    if (tipo === 'semana') item.periodoSemana = false;
+                    if (tipo === 'mes') item.periodoMes = false;
+                    if (tipo === 'anio') item.periodoAnio = false;
+                    return item;
+                });
+                try { localStorage.setItem('deliveryData', JSON.stringify(datos)); } catch(e) {}
+                actualizarInterfaz();
+            });
+        }
+
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            const btn = document.getElementById('btnTheme');
+            if (html.getAttribute('data-theme') === 'dark') {
+                html.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'light');
+                if(btn) btn.textContent = '🌙';
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+                if(btn) btn.textContent = '☀️';
+            }
+        }
+
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            window.addEventListener('DOMContentLoaded', () => {
+                const btn = document.getElementById('btnTheme');
+                if(btn) btn.textContent = '☀️';
+            });
+        }
+
+        function mostrarOpcionesExportar() {
+            document.getElementById('btnShowExport').style.display = 'none';
+            document.getElementById('opcionesExportar').style.display = 'block';
+        }
+
+        function cancelarExportar() {
+            document.getElementById('btnShowExport').style.display = 'block';
+            document.getElementById('opcionesExportar').style.display = 'none';
+        }
+
+        function exportarExcel() {
+            const deliveriesValidos = datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
+            if (deliveriesValidos.length === 0) {
+                mostrarMensaje('deliveryAlerta', t('msgNoDataExport'));
+                cancelarExportar();
+                return;
+            }
+
+            const inputNombre = document.getElementById('nombreReporteInput');
+            let nombreUsuario = inputNombre ? inputNombre.value.trim() : "reporte_deliveries";
+            
+            nombreUsuario = nombreUsuario === "" ? "reporte_deliveries" : nombreUsuario;
+            const nombreArchivo = nombreUsuario.endsWith(".csv") ? nombreUsuario : nombreUsuario + ".csv";
+
+            const headerDate = t('thDate');
+            const headerTime = t('thTime');
+            const headerAmount = t('thAmount');
+            let csvContent = `${headerDate},${headerTime},${headerAmount}\n`;
+            deliveriesValidos.forEach(d => {
+                csvContent += `${obtenerFechaSegura(d)},${d.hora},${d.monto}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", nombreArchivo);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            const successMsg = currentLang === 'es' ? `¡Archivo "${nombreArchivo}" descargado con éxito!` : `File "${nombreArchivo}" downloaded successfully!`;
+            mostrarMensaje('deliveryExito', successMsg, false);
+            cancelarExportar();
+        }
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js?v=1.35').catch(() => {});
+        }
+    </script>
+</body>
+</html>
