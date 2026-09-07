@@ -9,8 +9,8 @@
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.42</title>
-    <link rel="manifest" href="manifest.json?v=1.42">
+    <title>Control Delivery v1.43</title>
+    <link rel="manifest" href="manifest.json?v=1.43">
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -32,11 +32,6 @@
             z-index: 99999;
             transition: opacity 0.5s ease;
         }
-        .splash-icon {
-            font-size: 4.5rem;
-            animation: bounce 1.2s infinite alternate;
-            margin-bottom: 15px;
-        }
         .splash-title {
             font-size: 1.5rem;
             font-weight: bold;
@@ -47,10 +42,6 @@
             font-size: 0.85rem;
             color: #64748b;
             margin-top: 5px;
-        }
-        @keyframes bounce {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(-12px); }
         }
 
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 15px; transition: background 0.3s, border-color 0.3s; }
@@ -95,7 +86,6 @@
         .modal-card { background: white; padding: 20px; border-radius: 12px; width: 100%; max-width: 320px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .modal-buttons { display: flex; gap: 10px; margin-top: 15px; }
 
-        /* PANTALLAS NUEVAS DE HISTORIAL */
         #historialTotalScreen, #historialGastosScreen {
             display: none;
             position: fixed;
@@ -190,9 +180,18 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.42</span>
+        <span>Versión 1.43</span>
         <div class="header-buttons">
-            <button class="theme-toggle" onclick="toggleLanguage()" id="btnLang" title="Cambiar Idioma / Language">EN</button>
+            <select id="langSelect" class="theme-toggle" style="background:transparent; border:none; color:#10b981; font-weight:bold; font-size:14px; cursor:pointer; outline:none;" onchange="cambiarIdiomaSelect(this.value)">
+                <option value="es" style="background:#fff; color:#333;">ES</option>
+                <option value="en" style="background:#fff; color:#333;">EN</option>
+                <option value="pt" style="background:#fff; color:#333;">PT</option>
+                <option value="fr" style="background:#fff; color:#333;">FR</option>
+                <option value="it" style="background:#fff; color:#333;">IT</option>
+                <option value="de" style="background:#fff; color:#333;">DE</option>
+                <option value="zh" style="background:#fff; color:#333;">ZH</option>
+                <option value="ja" style="background:#fff; color:#333;">JA</option>
+            </select>
             <button class="theme-toggle" onclick="toggleSound()" id="btnSound" title="Sonido">🔊</button>
             <button class="theme-toggle" onclick="toggleDarkMode()" id="btnTheme" title="Modo">🌙</button>
         </div>
@@ -305,7 +304,7 @@
                 <div class="breakdown-list" id="desgloseMeses"></div>
             </div>
 
-            <!-- BOTONES ORDENADOS Y CON ANCHO UNIFORME -->
+            <!-- BOTONES ORDENADOS Y UNIFORMES -->
             <button class="btn-secondary" onclick="abrirHistorialTotal()" data-i18n="btnAllHistory" style="margin-bottom: 10px;">📋 Ver Todos los Movimientos</button>
             <button class="btn-print" onclick="window.print()" data-i18n="btnPrint" style="margin-bottom: 10px;">🖨️ Imprimir / Guardar PDF</button>
             <button class="btn-excel" id="btnShowExport" onclick="mostrarOpcionesExportar()" data-i18n="btnExportExcel">📊 Exportar a Excel</button>
@@ -499,7 +498,8 @@
                 msgNoExpensesHistory: "No hay gastos registrados",
                 confirmDeleteDelivery: "¿Estás seguro de eliminar este registro de delivery?",
                 confirmDeleteExpense: "¿Estás seguro de eliminar este gasto registrado?",
-                splashSub: "Cargando aplicación..."
+                splashSub: "Cargando aplicación...",
+                msgDownloadInfo: "📁 El archivo se guardará en tu carpeta de Descargas."
             },
             en: {
                 configTitle: "Profile Setup",
@@ -568,7 +568,428 @@
                 msgNoExpensesHistory: "No expenses registered",
                 confirmDeleteDelivery: "Are you sure you want to delete this delivery record?",
                 confirmDeleteExpense: "Are you sure you want to delete this expense record?",
-                splashSub: "Loading application..."
+                splashSub: "Loading application...",
+                msgDownloadInfo: "📁 The file will be saved in your Downloads folder."
+            },
+            pt: {
+                configTitle: "Configuração de Perfil",
+                configSub: "Insira suas informações",
+                placeholderNombre: "Nome",
+                placeholderApellido: "Sobrenome",
+                placeholderCedula: "Documento de Identidade",
+                startWeekLabel: "A semana começa em:",
+                optMon: "Segunda", optTue: "Terça", optWed: "Quarta", optThu: "Quinta", optFri: "Sexta", optSat: "Sábado", optSun: "Domingo",
+                btnSaveConfig: "Salvar Configurações",
+                tabDeliveries: "📦 Entregas", tabExpenses: "⛽ Despesas", tabChart: "📊 Gráfico",
+                regDeliveryTitle: "Registrar Entrega",
+                regDeliverySub: "Insira o valor da entrega",
+                placeholderMonto: "Valor ($)",
+                btnAddDelivery: "+ Adicionar Entrega",
+                btnEditDelivery: "Salvar Alterações",
+                btnCancelEdit: "Cancelar Edição",
+                todaySummary: "Resumo de Hoje",
+                statDeliveries: "Entregas",
+                statTotalToday: "Total Hoje",
+                weekSummary: "Resumo Semanal",
+                statTotalWeek: "Total Semana",
+                statDaysWorked: "Dias Trabalhados",
+                monthSummary: "Resumo Mensal",
+                statTotalMonth: "Total Mês",
+                yearSummary: "Resumo Anual",
+                statTotalYear: "Total Ano",
+                btnPrint: "🖨️ Imprimir / Salvar PDF",
+                btnAllHistory: "📋 Ver Todos os Movimentos",
+                btnAllExpensesHistory: "📋 Ver Todas as Despesas",
+                btnExportExcel: "📊 Exportar para Excel",
+                historyScreenTitle: "Histórico de Entregas",
+                expensesHistoryScreenTitle: "Histórico de Despesas",
+                btnBack: "← Voltar",
+                exportSub: "Digite o nome do arquivo:",
+                btnCancel: "Cancelar",
+                btnDownload: "Baixar",
+                regExpenseTitle: "Registrar Despesa",
+                regExpenseSub: "Selecione o tipo e insira o valor",
+                optGas: "⛽ Gasolina",
+                optFood: "🍔 Comida / Lanches",
+                btnAddExpense: "+ Adicionar Despesa",
+                todayExpenses: "Despesas de Hoje",
+                statGasToday: "Gasolina Hoje",
+                statFoodToday: "Comida Hoje",
+                weekExpenses: "Resumo Semanal de Despesas",
+                statGasWeek: "Gasolina Semana",
+                statFoodWeek: "Comida Semana",
+                monthExpenses: "Resumo Mensal de Despesas",
+                statGasMonth: "Gasolina Mês",
+                statFoodMonth: "Comida Mês",
+                chartTitle: "Balanço Visual de Hoje",
+                chartSub: "Ganhos vs Gasolina e Comida",
+                btnEditProfile: "⚙️ Editar Perfil",
+                modalConfirmTitle: "Confirmação",
+                btnAccept: "Aceitar",
+                printListTitle: "Lista de Transações",
+                thDate: "Data", thTime: "Hora", thAmount: "Valor",
+                msgInvalidAmount: "Insira um valor válido",
+                msgInvalidExpense: "Insira um valor válido para despesa",
+                msgInvalidProfile: "Insira seu Nome e Documento",
+                msgNoDataExport: "Sem dados suficientes para exportar.",
+                msgNoDeliveriesToday: "Nenhuma entrega hoje",
+                msgNoExpensesToday: "Nenhuma despesa hoje",
+                msgNoDeliveriesHistory: "Nenhuma entrega registrada",
+                msgNoExpensesHistory: "Nenhuma despesa registrada",
+                confirmDeleteDelivery: "Tem certeza que deseja excluir esta entrega?",
+                confirmDeleteExpense: "Tem certeza que deseja excluir esta despesa?",
+                splashSub: "Carregando aplicativo...",
+                msgDownloadInfo: "📁 O arquivo será salvo na sua pasta de Downloads."
+            },
+            fr: {
+                configTitle: "Configuration du Profil",
+                configSub: "Entrez vos informations",
+                placeholderNombre: "Prénom",
+                placeholderApellido: "Nom",
+                placeholderCedula: "Pièce d'identité",
+                startWeekLabel: "La semaine commence le:",
+                optMon: "Lundi", optTue: "Mardi", optWed: "Mercredi", optThu: "Jeudi", optFri: "Vendredi", optSat: "Samedi", optSun: "Dimanche",
+                btnSaveConfig: "Enregistrer",
+                tabDeliveries: "📦 Livraisons", tabExpenses: "⛽ Dépenses", tabChart: "📊 Graphique",
+                regDeliveryTitle: "Enregistrer une Livraison",
+                regDeliverySub: "Entrez le montant",
+                placeholderMonto: "Montant ($)",
+                btnAddDelivery: "+ Ajouter Livraison",
+                btnEditDelivery: "Enregistrer",
+                btnCancelEdit: "Annuler",
+                todaySummary: "Résumé du Jour",
+                statDeliveries: "Livraisons",
+                statTotalToday: "Total Jour",
+                weekSummary: "Résumé Hebdomadaire",
+                statTotalWeek: "Total Semaine",
+                statDaysWorked: "Jours Travaillés",
+                monthSummary: "Résumé Mensuel",
+                statTotalMonth: "Total Mois",
+                yearSummary: "Résumé Annuel",
+                statTotalYear: "Total Année",
+                btnPrint: "🖨️ Imprimer / PDF",
+                btnAllHistory: "📋 Voir Tous les Mouvements",
+                btnAllExpensesHistory: "📋 Voir Toutes les Dépenses",
+                btnExportExcel: "📊 Exporter vers Excel",
+                historyScreenTitle: "Historique des Livraisons",
+                expensesHistoryScreenTitle: "Historique des Dépenses",
+                btnBack: "← Retour",
+                exportSub: "Nom du fichier:",
+                btnCancel: "Annuler",
+                btnDownload: "Télécharger",
+                regExpenseTitle: "Enregistrer Dépense",
+                regExpenseSub: "Sélectionnez le type et le montant",
+                optGas: "⛽ Essence",
+                optFood: "🍔 Nourriture",
+                btnAddExpense: "+ Ajouter Dépense",
+                todayExpenses: "Dépenses du Jour",
+                statGasToday: "Essence Jour",
+                statFoodToday: "Nourriture Jour",
+                weekExpenses: "Dépenses Hebdomadaires",
+                statGasWeek: "Essence Semaine",
+                statFoodWeek: "Nourriture Semaine",
+                monthExpenses: "Dépenses Mensuelles",
+                statGasMonth: "Essence Mois",
+                statFoodMonth: "Nourriture Mois",
+                chartTitle: "Bilan Visuel du Jour",
+                chartSub: "Gains vs Essence et Nourriture",
+                btnEditProfile: "⚙️ Modifier le Profil",
+                modalConfirmTitle: "Confirmation",
+                btnAccept: "Accepter",
+                printListTitle: "Liste des Transactions",
+                thDate: "Date", thTime: "Heure", thAmount: "Montant",
+                msgInvalidAmount: "Entrez un montant valide",
+                msgInvalidExpense: "Entrez un montant valide",
+                msgInvalidProfile: "Entrez votre Nom et ID",
+                msgNoDataExport: "Pas assez de données.",
+                msgNoDeliveriesToday: "Aucune livraison aujourd'hui",
+                msgNoExpensesToday: "Aucune dépense aujourd'hui",
+                msgNoDeliveriesHistory: "Aucune livraison enregistrée",
+                msgNoExpensesHistory: "Aucune dépense enregistrée",
+                confirmDeleteDelivery: "Êtes-vous sûr de vouloir supprimer ?",
+                confirmDeleteExpense: "Êtes-vous sûr de vouloir supprimer ?",
+                splashSub: "Chargement de l'application...",
+                msgDownloadInfo: "📁 Le fichier sera enregistré dans votre dossier Téléchargements."
+            },
+            it: {
+                configTitle: "Impostazioni Profilo",
+                configSub: "Inserisci i tuoi dati",
+                placeholderNombre: "Nome",
+                placeholderApellido: "Cognome",
+                placeholderCedula: "Documento d'Identità",
+                startWeekLabel: "La settimana inizia di:",
+                optMon: "Lunedì", optTue: "Martedì", optWed: "Mercoledì", optThu: "Giovedì", optFri: "Venerdì", optSat: "Sabato", optSun: "Domenica",
+                btnSaveConfig: "Salva Impostazioni",
+                tabDeliveries: "📦 Consegne", tabExpenses: "⛽ Spese", tabChart: "📊 Grafico",
+                regDeliveryTitle: "Registra Consegna",
+                regDeliverySub: "Inserisci l'importo",
+                placeholderMonto: "Importo ($)",
+                btnAddDelivery: "+ Aggiungi Consegna",
+                btnEditDelivery: "Salva Modifiche",
+                btnCancelEdit: "Annulla",
+                todaySummary: "Riepilogo di Oggi",
+                statDeliveries: "Consegne",
+                statTotalToday: "Totale Oggi",
+                weekSummary: "Riepilogo Settimanale",
+                statTotalWeek: "Totale Settimana",
+                statDaysWorked: "Giorni Lavorati",
+                monthSummary: "Riepilogo Mensile",
+                statTotalMonth: "Totale Mese",
+                yearSummary: "Riepilogo Annuale",
+                statTotalYear: "Totale Anno",
+                btnPrint: "🖨️ Stampa / PDF",
+                btnAllHistory: "📋 Tutti i Movimenti",
+                btnAllExpensesHistory: "📋 Tutte le Spese",
+                btnExportExcel: "📊 Esporta in Excel",
+                historyScreenTitle: "Storico Consegne",
+                expensesHistoryScreenTitle: "Storico Spese",
+                btnBack: "← Indietro",
+                exportSub: "Nome file:",
+                btnCancel: "Annulla",
+                btnDownload: "Scarica",
+                regExpenseTitle: "Registra Spesa",
+                regExpenseSub: "Seleziona tipo e importo",
+                optGas: "⛽ Benzina",
+                optFood: "🍔 Cibo / Snack",
+                btnAddExpense: "+ Aggiungi Spesa",
+                todayExpenses: "Spese di Oggi",
+                statGasToday: "Benzina Oggi",
+                statFoodToday: "Cibo Oggi",
+                weekExpenses: "Spese Settimanali",
+                statGasWeek: "Benzina Settimana",
+                statFoodWeek: "Cibo Settimana",
+                monthExpenses: "Spese Mensili",
+                statGasMonth: "Benzina Mese",
+                statFoodMonth: "Cibo Mese",
+                chartTitle: "Bilancio Visivo di Oggi",
+                chartSub: "Guadagni vs Benzina e Cibo",
+                btnEditProfile: "⚙️ Modifica Profilo",
+                modalConfirmTitle: "Conferma",
+                btnAccept: "Accetta",
+                printListTitle: "Elenco Transazioni",
+                thDate: "Data", thTime: "Ora", thAmount: "Importo",
+                msgInvalidAmount: "Inserisci un importo valido",
+                msgInvalidExpense: "Inserisci un importo valido",
+                msgInvalidProfile: "Inserisci Nome e ID",
+                msgNoDataExport: "Dati insufficienti.",
+                msgNoDeliveriesToday: "Nessuna consegna oggi",
+                msgNoExpensesToday: "Nessuna spesa oggi",
+                msgNoDeliveriesHistory: "Nessuna consegna registrata",
+                msgNoExpensesHistory: "Nessuna spesa registrata",
+                confirmDeleteDelivery: "Sei sicuro di voler eliminare?",
+                confirmDeleteExpense: "Sei sicuro di voler eliminare?",
+                splashSub: "Caricamento applicazione...",
+                msgDownloadInfo: "📁 Il file verrà salvato nella cartella Download."
+            },
+            de: {
+                configTitle: "Profil-Setup",
+                configSub: "Geben Sie Ihre Daten ein",
+                placeholderNombre: "Vorname",
+                placeholderApellido: "Nachname",
+                placeholderCedula: "Ausweis / ID",
+                startWeekLabel: "Arbeitswoche beginnt am:",
+                optMon: "Montag", optTue: "Dienstag", optWed: "Mittwoch", optThu: "Donnerstag", optFri: "Freitag", optSat: "Samstag", optSun: "Sonntag",
+                btnSaveConfig: "Einstellungen speichern",
+                tabDeliveries: "📦 Lieferungen", tabExpenses: "⛽ Ausgaben", tabChart: "📊 Diagramm",
+                regDeliveryTitle: "Lieferung erfassen",
+                regDeliverySub: "Betrag eingeben",
+                placeholderMonto: "Betrag ($)",
+                btnAddDelivery: "+ Lieferung hinzufügen",
+                btnEditDelivery: "Änderungen speichern",
+                btnCancelEdit: "Abbrechen",
+                todaySummary: "Heutige Übersicht",
+                statDeliveries: "Lieferungen",
+                statTotalToday: "Gesamt Heute",
+                weekSummary: "Wochenübersicht",
+                statTotalWeek: "Gesamt Woche",
+                statDaysWorked: "Arbeitstage",
+                monthSummary: "Monatsübersicht",
+                statTotalMonth: "Gesamt Monat",
+                yearSummary: "Jahresübersicht",
+                statTotalYear: "Gesamt Jahr",
+                btnPrint: "🖨️ Drucken / PDF",
+                btnAllHistory: "📋 Alle Bewegungen anzeigen",
+                btnAllExpensesHistory: "📋 Alle Ausgaben anzeigen",
+                btnExportExcel: "📊 Nach Excel exportieren",
+                historyScreenTitle: "Lieferverlauf",
+                expensesHistoryScreenTitle: "Ausgabenverlauf",
+                btnBack: "← Zurück",
+                exportSub: "Dateiname eingeben:",
+                btnCancel: "Abbrechen",
+                btnDownload: "Herunterladen",
+                regExpenseTitle: "Ausgabe erfassen",
+                regExpenseSub: "Typ wählen und Betrag eingeben",
+                optGas: "⛽ Benzin",
+                optFood: "🍔 Essen / Snacks",
+                btnAddExpense: "+ Ausgabe hinzufügen",
+                todayExpenses: "Heutige Ausgaben",
+                statGasToday: "Benzin Heute",
+                statFoodToday: "Essen Heute",
+                weekExpenses: "Wöchentliche Ausgaben",
+                statGasWeek: "Benzin Woche",
+                statFoodWeek: "Essen Woche",
+                monthExpenses: "Monatliche Ausgaben",
+                statGasMonth: "Benzin Monat",
+                statFoodMonth: "Essen Monat",
+                chartTitle: "Heutige visuelle Bilanz",
+                chartSub: "Verdienst vs. Benzin & Essen",
+                btnEditProfile: "⚙️ Profil bearbeiten",
+                modalConfirmTitle: "Bestätigung",
+                btnAccept: "Akzeptieren",
+                printListTitle: "Liste aller Transaktionen",
+                thDate: "Datum", thTime: "Uhrzeit", thAmount: "Betrag",
+                msgInvalidAmount: "Gültigen Betrag eingeben",
+                msgInvalidExpense: "Gültigen Betrag eingeben",
+                msgInvalidProfile: "Bitte Name und ID eingeben",
+                msgNoDataExport: "Nicht genügend Daten.",
+                msgNoDeliveriesToday: "Keine Lieferungen heute",
+                msgNoExpensesToday: "Keine Ausgaben heute",
+                msgNoDeliveriesHistory: "Keine Lieferungen registriert",
+                msgNoExpensesHistory: "Keine Ausgaben registriert",
+                confirmDeleteDelivery: "Sind Sie sicher, dass Sie löschen möchten?",
+                confirmDeleteExpense: "Sind Sie sicher, dass Sie löschen möchten?",
+                splashSub: "Anwendung wird geladen...",
+                msgDownloadInfo: "📁 Die Datei wird in Ihrem Download-Ordner gespeichert."
+            },
+            zh: {
+                configTitle: "个人资料设置",
+                configSub: "输入您的信息",
+                placeholderNombre: "名",
+                placeholderApellido: "姓",
+                placeholderCedula: "身份证件",
+                startWeekLabel: "工作周开始于：",
+                optMon: "周一", optTue: "周二", optWed: "周三", optThu: "周四", optFri: "周五", optSat: "周六", optSun: "周日",
+                btnSaveConfig: "保存设置",
+                tabDeliveries: "📦 配送", tabExpenses: "⛽ 费用", tabChart: "📊 图表",
+                regDeliveryTitle: "登记配送",
+                regDeliverySub: "输入配送金额",
+                placeholderMonto: "金额 ($)",
+                btnAddDelivery: "+ 添加配送",
+                btnEditDelivery: "保存更改",
+                btnCancelEdit: "取消编辑",
+                todaySummary: "今日摘要",
+                statDeliveries: "配送次数",
+                statTotalToday: "今日总计",
+                weekSummary: "每周摘要",
+                statTotalWeek: "本周总计",
+                statDaysWorked: "工作天数",
+                monthSummary: "每月摘要",
+                statTotalMonth: "本月总计",
+                yearSummary: "每年摘要",
+                statTotalYear: "本年总计",
+                btnPrint: "🖨️ 打印 / 保存 PDF",
+                btnAllHistory: "📋 查看所有动态",
+                btnAllExpensesHistory: "📋 查看所有费用",
+                btnExportExcel: "📊 导出到 Excel",
+                historyScreenTitle: "配送历史",
+                expensesHistoryScreenTitle: "费用历史",
+                btnBack: "← 返回",
+                exportSub: "输入文件名：",
+                btnCancel: "取消",
+                btnDownload: "下载",
+                regExpenseTitle: "登记费用",
+                regExpenseSub: "选择类型并输入金额",
+                optGas: "⛽ 汽油",
+                optFood: "🍔 食品/小吃",
+                btnAddExpense: "+ 添加费用",
+                todayExpenses: "今日费用",
+                statGasToday: "今日汽油",
+                statFoodToday: "今日食品",
+                weekExpenses: "每周费用摘要",
+                statGasWeek: "本周汽油",
+                statFoodWeek: "本周食品",
+                monthExpenses: "每月费用摘要",
+                statGasMonth: "本月汽油",
+                statFoodMonth: "本月食品",
+                chartTitle: "今日可视化平衡",
+                chartSub: "收入对比汽油与食品",
+                btnEditProfile: "⚙️ 修改资料设置",
+                modalConfirmTitle: "确认",
+                btnAccept: "接受",
+                printListTitle: "所有交易列表",
+                thDate: "日期", thTime: "时间", thAmount: "金额",
+                msgInvalidAmount: "请输入有效金额",
+                msgInvalidExpense: "请输入有效费用金额",
+                msgInvalidProfile: "请输入您的姓名和证件",
+                msgNoDataExport: "没有足够的数据可供导出。",
+                msgNoDeliveriesToday: "今天没有登记配送",
+                msgNoExpensesToday: "今天没有登记费用",
+                msgNoDeliveriesHistory: "没有登记配送",
+                msgNoExpensesHistory: "没有登记费用",
+                confirmDeleteDelivery: "您确定要删除此配送记录吗？",
+                confirmDeleteExpense: "确认删除此费用记录？",
+                splashSub: "正在加载应用...",
+                msgDownloadInfo: "📁 文件将保存到您的下载文件夹中。"
+            },
+            ja: {
+                configTitle: "プロフィール設定",
+                configSub: "情報を入力してください",
+                placeholderNombre: "名",
+                placeholderApellido: "姓",
+                placeholderCedula: "身分証明書",
+                startWeekLabel: "週の開始日：",
+                optMon: "月曜日", optTue: "火曜日", optWed: "水曜日", optThu: "木曜日", optFri: "金曜日", optSat: "土曜日", optSun: "日曜日",
+                btnSaveConfig: "設定を保存",
+                tabDeliveries: "📦 配達", tabExpenses: "⛽ 経費", tabChart: "📊 グラフ",
+                regDeliveryTitle: "配達を登録",
+                regDeliverySub: "配達金額を入力",
+                placeholderMonto: "金額 ($)",
+                btnAddDelivery: "+ 配達を追加",
+                btnEditDelivery: "変更を保存",
+                btnCancelEdit: "編集をキャンセル",
+                todaySummary: "本日のサマリー",
+                statDeliveries: "配達回数",
+                statTotalToday: "本日合計",
+                weekSummary: "週間サマリー",
+                statTotalWeek: "週間合計",
+                statDaysWorked: "稼働日数",
+                monthSummary: "月間サマリー",
+                statTotalMonth: "月間合計",
+                yearSummary: "年間サマリー",
+                statTotalYear: "年間合計",
+                btnPrint: "🖨️ 印刷 / PDF保存",
+                btnAllHistory: "📋 すべての履歴を表示",
+                btnAllExpensesHistory: "📋 すべての経費を表示",
+                btnExportExcel: "📊 Excelにエクスポート",
+                historyScreenTitle: "配達履歴",
+                expensesHistoryScreenTitle: "経費履歴",
+                btnBack: "← 戻る",
+                exportSub: "ファイル名を入力:",
+                btnCancel: "キャンセル",
+                btnDownload: "ダウンロード",
+                regExpenseTitle: "経費を登録",
+                regExpenseSub: "種類を選んで金額を入力",
+                optGas: "⛽ ガソリン",
+                optFood: "🍔 食事・スナック",
+                btnAddExpense: "+ 経費を追加",
+                todayExpenses: "本日の経費",
+                statGasToday: "本日のガソリン",
+                statFoodToday: "本日の食事",
+                weekExpenses: "週間経費サマリー",
+                statGasWeek: "週間ガソリン",
+                statFoodWeek: "週間食事",
+                monthExpenses: "月間経費サマリー",
+                statGasMonth: "月間ガソリン",
+                statFoodMonth: "月間食事",
+                chartTitle: "本日のビジュアルバランス",
+                chartSub: "収益 vs ガソリン・食事",
+                btnEditProfile: "⚙️ プロフィール設定を変更",
+                modalConfirmTitle: "確認",
+                btnAccept: "承諾",
+                printListTitle: "全トランザクション一覧",
+                thDate: "日付", thTime: "時間", thAmount: "金額",
+                msgInvalidAmount: "有効な金額を入力してください",
+                msgInvalidExpense: "有効な経費金額を入力してください",
+                msgInvalidProfile: "名前とIDを入力してください",
+                msgNoDataExport: "エクスポートする十分なデータがありません。",
+                msgNoDeliveriesToday: "本日の配達はありません",
+                msgNoExpensesToday: "本日の経費はありません",
+                msgNoDeliveriesHistory: "配達の登録はありません",
+                msgNoExpensesHistory: "経費の登録はありません",
+                confirmDeleteDelivery: "この配達記録を削除してもよろしいですか？",
+                confirmDeleteExpense: "この経費記録を削除してもよろしいですか？",
+                splashSub: "アプリケーションを読み込んでいます...",
+                msgDownloadInfo: "📁 ファイルはダウンロードフォルダに保存されます。"
             }
         };
 
@@ -587,11 +1008,12 @@
                 const key = el.getAttribute('data-i18n-ph');
                 el.placeholder = t(key);
             });
-            document.getElementById('btnLang').textContent = currentLang === 'es' ? 'EN' : 'ES';
+            const selectEl = document.getElementById('langSelect');
+            if(selectEl) selectEl.value = currentLang;
         }
 
-        function toggleLanguage() {
-            currentLang = currentLang === 'es' ? 'en' : 'es';
+        function cambiarIdiomaSelect(lang) {
+            currentLang = lang;
             localStorage.setItem('appLang', currentLang);
             applyLanguage();
             actualizarInterfaz();
@@ -726,7 +1148,7 @@
             if (!el) return;
             el.innerText = texto;
             el.style.display = 'block';
-            setTimeout(() => { el.style.display = 'none'; }, 3500);
+            setTimeout(() => { el.style.display = 'none'; }, 4000);
         }
 
         function abrirCustomConfirm(mensaje, accion) {
@@ -1269,13 +1691,12 @@
             link.click();
             document.body.removeChild(link);
             
-            const successMsg = currentLang === 'es' ? `¡Archivo "${nombreArchivo}" descargado con éxito!` : `File "${nombreArchivo}" downloaded successfully!`;
-            mostrarMensaje('deliveryExito', successMsg, false);
+            mostrarMensaje('deliveryExito', t('msgDownloadInfo'), false);
             cancelarExportar();
         }
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=1.42').catch(() => {});
+            navigator.serviceWorker.register('sw.js?v=1.43').catch(() => {});
         }
     </script>
 </body>
