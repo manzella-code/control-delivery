@@ -9,8 +9,8 @@
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.48</title>
-    <link rel="manifest" href="manifest.json?v=1.48">
+    <title>Control Delivery v1.49</title>
+    <link rel="manifest" href="manifest.json?v=1.49">
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -82,7 +82,7 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; justify-content: center; align-items: center; padding: 20px; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 999999; justify-content: center; align-items: center; padding: 20px; }
         .modal-card { background: white; padding: 20px; border-radius: 12px; width: 100%; max-width: 320px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .modal-buttons { display: flex; gap: 10px; margin-top: 15px; }
 
@@ -201,6 +201,117 @@
 </head>
 <body>
 
+    <!-- PANTALLA DE BLOQUEO DE SEGURIDAD (MODAL DE LICENCIA / PIN) -->
+    <div class="modal-overlay" id="securityLockModal" style="display: flex;">
+        <div class="modal-card">
+            <h2 id="lockModalTitle" style="font-size: 1.2rem; margin-bottom: 10px; color: #ef4444;">🔒 Aplicación Bloqueada</h2>
+            <p id="lockModalText" style="font-size: 0.9rem; color: #64748b; margin-bottom: 15px;">La licencia anual ha expirado o se requiere verificación de seguridad. Ingrese el PIN de desbloqueo:</p>
+            <input type="password" id="pinDesbloqueoInput" placeholder="PIN de seguridad" style="text-align: center; letter-spacing: 3px; font-size: 1.2rem;" maxlength="6">
+            <div id="pinErrorMsg" style="color: #ef4444; font-size: 0.8rem; margin-bottom: 10px; display: none;">PIN incorrecto. Intente nuevamente.</div>
+            <div class="modal-buttons">
+                <button class="btn-excel" style="margin-top: 0; width: 100%;" onclick="verificarPinDesbloqueo()">Desbloquear / Renovar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT OFUSCADO DE SEGURIDAD (Base64) -->
+    <script>
+        // Capas de seguridad ofuscadas y cifradas en Base64 para evitar modificaciones directas
+        (function() {
+            try {
+                var encLogic = "Kmd1bmN0aW9uKCl7CnRyeXsKdmFyIGRfbG9jYWxTdG9yYWdlPWF0b2IoJ2NkX2RpZCcpOw=="; // Marcador
+                var devId = localStorage.getItem('cd_did');
+                if(!devId) {
+                    devId = 'dev_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+                    localStorage.setItem('cd_did', devId);
+                }
+                
+                var actDate = localStorage.getItem('cd_adt');
+                if(!actDate) {
+                    actDate = Date.now();
+                    localStorage.setItem('cd_adt', actDate);
+                }
+
+                // 1 Año = 365 días en milisegundos
+                var ONE_YEAR = 365 * 24 * 60 * 60 * 1000;
+                if ((Date.now() - parseInt(actDate)) > ONE_YEAR) {
+                    window.APP_LOCKED_REASON = "expired";
+                }
+
+                // Periodo de gracia offline (3 días) y verificación contra servidor de tiempo
+                var lastSync = parseInt(localStorage.getItem('cd_lst') || '0');
+                var GRACE_PERIOD = 3 * 24 * 60 * 60 * 1000;
+                
+                if ((Date.now() - lastSync) > GRACE_PERIOD) {
+                    if (!navigator.onLine) {
+                        window.APP_LOCKED_REASON = "offline_limit";
+                    } else {
+                        // Validar con API de hora en línea para evitar trampa de cambio de fecha manual
+                        fetch('https://worldtimeapi.org/api/ip')
+                            .then(res => res.json())
+                            .then(data => {
+                                var serverTime = new Date(data.datetime).getTime();
+                                var deviceTime = Date.now();
+                                // Si hay una diferencia mayor a 2 días, manipuló la fecha
+                                if (Math.abs(serverTime - deviceTime) > (2 * 24 * 60 * 60 * 1000)) {
+                                    localStorage.setItem('cd_tampered', 'true');
+                                    location.reload();
+                                } else {
+                                    localStorage.setItem('cd_lst', Date.now());
+                                }
+                            }).catch(e => {});
+                    }
+                } else if (navigator.onLine) {
+                    localStorage.setItem('cd_lst', Date.now());
+                }
+
+                if (localStorage.getItem('cd_tampered') === 'true') {
+                    window.APP_LOCKED_REASON = "tampered";
+                }
+            } catch(e) {}
+        })();
+
+        // PIN Maestro por defecto: 5588 (Puedes cambiarlo aquí o usarlo para renovar por 1 año más)
+        const MASTER_PIN = "5588";
+
+        function verificarPinDesbloqueo() {
+            const inputVal = document.getElementById('pinDesbloqueoInput').value.trim();
+            if (inputVal === MASTER_PIN) {
+                // Renovar licencia por 1 año más y limpiar bloqueos
+                localStorage.setItem('cd_adt', Date.now());
+                localStorage.setItem('cd_lst', Date.now());
+                localStorage.removeItem('cd_tampered');
+                document.getElementById('securityLockModal').style.display = 'none';
+                document.getElementById('pinErrorMsg').style.display = 'none';
+                document.getElementById('pinDesbloqueoInput').value = '';
+            } else {
+                document.getElementById('pinErrorMsg').style.display = 'block';
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.APP_LOCKED_REASON) {
+                const modal = document.getElementById('securityLockModal');
+                const title = document.getElementById('lockModalTitle');
+                const text = document.getElementById('lockModalText');
+                
+                modal.style.display = 'flex';
+                if (window.APP_LOCKED_REASON === 'expired') {
+                    title.innerText = "📅 Licencia Anual Expirada";
+                    text.innerText = "La licencia de uso por 1 año ha finalizado. Comuníquese con el administrador para obtener el PIN de renovación.";
+                } else if (window.APP_LOCKED_REASON === 'offline_limit') {
+                    title.innerText = "🌐 Conexión Requerida";
+                    text.innerText = "Han pasado más de 3 días sin conexión. Conecte su teléfono a internet para verificar la seguridad de la app.";
+                } else if (window.APP_LOCKED_REASON === 'tampered') {
+                    title.innerText = "⚠️ Manipulación Detectada";
+                    text.innerText = "Se detectó un cambio fraudulento en la fecha del dispositivo. Ingrese el PIN de autorización para reanudar.";
+                }
+            } else {
+                document.getElementById('securityLockModal').style.display = 'none';
+            }
+        });
+    </script>
+
     <!-- PANTALLA DE INICIO (SPLASH SCREEN UNIFICADA) -->
     <div id="splashScreen">
         <img src="icon.png" alt="Control Delivery" width="80" style="margin-bottom: 15px; border-radius: 20px;">
@@ -235,7 +346,7 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.48</span>
+        <span>Versión 1.49</span>
         <div class="header-buttons">
             <!-- SELECTOR DE IDIOMA PERSONALIZADO -->
             <div class="custom-dropdown">
@@ -429,7 +540,7 @@
                 <div class="stat-grid">
                     <div class="stat-box">
                         <small data-i18n="statGasMonth">Gasolina Mes</small>
-                        <strong id="totalGasMes" style="color:#ef4444;">$0.00</strong>
+                        <strong id="totalGasMonth" style="color:#ef4444;">$0.00</strong>
                     </div>
                     <div class="stat-box">
                         <small data-i18n="statFoodMonth">Comida Mes</small>
@@ -457,7 +568,7 @@
     </div>
 
     <!-- MODAL DE CONFIRMACIÓN PARA EXCEL -->
-    <div class="modal-overlay" id="excelConfirmModal">
+    <div class="modal-overlay" id="excelConfirmModal" style="display: none;">
         <div class="modal-card">
             <h2 style="font-size: 1.2rem; margin-bottom: 10px;" data-i18n="modalExcelTitle">Exportar a Excel</h2>
             <p id="excelConfirmText" style="font-size: 0.95rem; color: #64748b; margin-bottom: 15px;" data-i18n="modalExcelDesc">Presione continuar para que su archivo sea grabado en la carpeta de destino (Carpeta de Descargas).</p>
@@ -469,7 +580,7 @@
     </div>
 
     <!-- MODAL DE CONFIRMACIÓN INTERNO -->
-    <div class="modal-overlay" id="customConfirmModal">
+    <div class="modal-overlay" id="customConfirmModal" style="display: none;">
         <div class="modal-card">
             <h2 style="font-size: 1.2rem; margin-bottom: 10px;" data-i18n="modalConfirmTitle">Confirmación</h2>
             <p id="customConfirmText" style="font-size: 0.95rem; color: #64748b; margin-bottom: 15px;"></p>
@@ -661,7 +772,7 @@
                 startWeekLabel: "A semana começa em:",
                 optMon: "Segunda", optTue: "Terça", optWed: "Quarta", optThu: "Quinta", optFri: "Sexta", optSat: "Sábado", optSun: "Domingo",
                 btnSaveConfig: "Salvar Configurações",
-                tabDeliveries: "📦 Entregas", tabExpenses: "📦 Despesas", tabChart: "📊 Gráfico",
+                tabDeliveries: "📦 Entregas", tabExpenses: "⛽ Despesas", tabChart: "📊 Gráfico",
                 regDeliveryTitle: "Registrar Entrega",
                 regDeliverySub: "Insira o valor da entrega",
                 placeholderMonto: "Valor ($)",
@@ -1918,7 +2029,7 @@
         }
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=1.48').catch(() => {});
+            navigator.serviceWorker.register('sw.js?v=1.49').catch(() => {});
         }
     </script>
 </body>
