@@ -9,8 +9,8 @@
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.40</title>
-    <link rel="manifest" href="manifest.json?v=1.40">
+    <title>Control Delivery v1.41</title>
+    <link rel="manifest" href="manifest.json?v=1.41">
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -66,7 +66,7 @@
         button:active { background: #059669; }
         .btn-secondary { background: #64748b; margin-top: 5px; }
         .btn-danger { background: #ef4444; margin-top: 10px; }
-        .btn-print { background: #3b82f6; margin-bottom: 15px; }
+        .btn-print { background: #3b82f6; margin-bottom: 10px; }
         .btn-excel { background: #107c41; }
         .btn-link { background: none; color: #64748b; font-size: 0.9rem; margin-top: 5px; border: none; text-decoration: underline; padding: 5px; cursor: pointer; width: 100%; }
         ul { list-style: none; max-height: 250px; overflow-y: auto; }
@@ -95,8 +95,8 @@
         .modal-card { background: white; padding: 20px; border-radius: 12px; width: 100%; max-width: 320px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .modal-buttons { display: flex; gap: 10px; margin-top: 15px; }
 
-        /* PANTALLA NUEVA DE HISTORIAL */
-        #historialTotalScreen {
+        /* PANTALLAS NUEVAS DE HISTORIAL */
+        #historialTotalScreen, #historialGastosScreen {
             display: none;
             position: fixed;
             top: 0;
@@ -118,7 +118,7 @@
         }
         [data-theme="dark"] body { background: var(--bg-color); color: var(--text-color); }
         [data-theme="dark"] #splashScreen { background: #121212; color: #e0e0e0; }
-        [data-theme="dark"] #historialTotalScreen { background: var(--bg-color); color: var(--text-color); }
+        [data-theme="dark"] #historialTotalScreen, [data-theme="dark"] #historialGastosScreen { background: var(--bg-color); color: var(--text-color); }
         [data-theme="dark"] .card, [data-theme="dark"] .modal-card { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); }
         [data-theme="dark"] h2 { color: #f1f5f9; }
         [data-theme="dark"] input, [data-theme="dark"] select { background: #2d2d2d; color: #e0e0e0; border-color: #444; }
@@ -163,11 +163,11 @@
         <div class="splash-subtitle" data-i18n="splashSub">Cargando aplicación...</div>
     </div>
 
-    <!-- PANTALLA NUEVA DE HISTORIAL TOTAL -->
+    <!-- PANTALLA NUEVA DE HISTORIAL DE DELIVERIES -->
     <div id="historialTotalScreen">
         <div style="max-width: 500px; margin: 0 auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h2 data-i18n="historyScreenTitle">Historial de Todos los Movimientos</h2>
+                <h2 data-i18n="historyScreenTitle">Historial de Deliveries</h2>
                 <button class="btn-secondary" style="width: auto; padding: 8px 12px; margin: 0;" onclick="cerrarHistorialTotal()" data-i18n="btnBack">← Volver</button>
             </div>
             <div class="card">
@@ -176,8 +176,21 @@
         </div>
     </div>
 
+    <!-- PANTALLA NUEVA DE HISTORIAL DE GASTOS -->
+    <div id="historialGastosScreen">
+        <div style="max-width: 500px; margin: 0 auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 data-i18n="expensesHistoryScreenTitle">Historial de Gastos</h2>
+                <button class="btn-secondary" style="width: auto; padding: 8px 12px; margin: 0;" onclick="cerrarHistorialGastos()" data-i18n="btnBack">← Volver</button>
+            </div>
+            <div class="card">
+                <ul id="listaHistorialGastos" style="max-height: 75vh; overflow-y: auto;"></ul>
+            </div>
+        </div>
+    </div>
+
     <div class="version-badge">
-        <span>Versión 1.40</span>
+        <span>Versión 1.41</span>
         <div class="header-buttons">
             <button class="theme-toggle" onclick="toggleLanguage()" id="btnLang" title="Cambiar Idioma / Language">EN</button>
             <button class="theme-toggle" onclick="toggleSound()" id="btnSound" title="Sonido">🔊</button>
@@ -292,11 +305,11 @@
                 <div class="breakdown-list" id="desgloseMeses"></div>
             </div>
 
+            <!-- BOTONES ORDENADOS SEGÚN SOLICITUD -->
+            <button class="btn-secondary" onclick="abrirHistorialTotal()" data-i18n="btnAllHistory" style="margin-bottom: 10px;">📋 Ver Todos los Movimientos</button>
             <button class="btn-print" onclick="window.print()" data-i18n="btnPrint">🖨️ Imprimir / Guardar PDF</button>
-            <button class="btn-secondary" onclick="abrirHistorialTotal()" data-i18n="btnAllHistory" style="margin-bottom: 15px;">📋 Ver Todos los Movimientos</button>
             
-            <div class="card" style="background: var(--card-bg); border: 1px solid var(--border-color);">
-                <h2 style="font-size: 1rem; margin-bottom: 5px;" data-i18n="exportExcelTitle">Exportar Reporte a Excel</h2>
+            <div class="card" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 15px;">
                 <button class="btn-excel" id="btnShowExport" onclick="mostrarOpcionesExportar()" data-i18n="btnExportExcel">📊 Exportar a Excel (CSV)</button>
                 
                 <div id="opcionesExportar" style="display: none; margin-top: 10px;">
@@ -369,6 +382,9 @@
                     </div>
                 </div>
             </div>
+
+            <!-- BOTÓN PARA VER TODOS LOS GASTOS -->
+            <button class="btn-secondary" onclick="abrirHistorialGastos()" data-i18n="btnAllExpensesHistory" style="margin-bottom: 15px;">📋 Ver Todos los Gastos</button>
         </div>
 
         <!-- ================= PESTAÑA 3: GRÁFICO ================= -->
@@ -447,10 +463,10 @@
                 statTotalYear: "Total Año",
                 btnPrint: "🖨️ Imprimir / Guardar PDF",
                 btnAllHistory: "📋 Ver Todos los Movimientos",
-                historyScreenTitle: "Historial de Todos los Movimientos",
+                btnAllExpensesHistory: "📋 Ver Todos los Gastos",
+                historyScreenTitle: "Historial de Deliveries",
+                expensesHistoryScreenTitle: "Historial de Gastos",
                 btnBack: "← Volver",
-                exportExcelTitle: "Exportar Reporte a Excel",
-                btnExportExcel: "📊 Exportar a Excel (CSV)",
                 exportSub: "Escribe el nombre que deseas para el archivo:",
                 btnCancel: "Cancelar",
                 btnDownload: "Descargar",
@@ -482,7 +498,7 @@
                 msgNoDeliveriesToday: "No has registrado deliveries hoy",
                 msgNoExpensesToday: "No has registrado gastos hoy",
                 msgNoDeliveriesHistory: "No hay deliveries registrados",
-                msgNoHistory: "No hay movimientos registrados",
+                msgNoExpensesHistory: "No hay gastos registrados",
                 confirmDeleteDelivery: "¿Estás seguro de eliminar este registro de delivery?",
                 confirmDeleteExpense: "¿Estás seguro de eliminar este gasto registrado?",
                 splashSub: "Cargando aplicación..."
@@ -515,10 +531,10 @@
                 statTotalYear: "Year Total",
                 btnPrint: "🖨️ Print / Save PDF",
                 btnAllHistory: "📋 View All Movements",
-                historyScreenTitle: "All Movements History",
+                btnAllExpensesHistory: "📋 View All Expenses",
+                historyScreenTitle: "Deliveries History",
+                expensesHistoryScreenTitle: "Expenses History",
                 btnBack: "← Back",
-                exportExcelTitle: "Export Report to Excel",
-                btnExportExcel: "📊 Export to Excel (CSV)",
                 exportSub: "Enter file name:",
                 btnCancel: "Cancel",
                 btnDownload: "Download",
@@ -550,7 +566,7 @@
                 msgNoDeliveriesToday: "No deliveries registered today",
                 msgNoExpensesToday: "No expenses registered today",
                 msgNoDeliveriesHistory: "No deliveries registered",
-                msgNoHistory: "No movements registered",
+                msgNoExpensesHistory: "No expenses registered",
                 confirmDeleteDelivery: "Are you sure you want to delete this delivery record?",
                 confirmDeleteExpense: "Are you sure you want to delete this expense record?",
                 splashSub: "Loading application..."
@@ -621,36 +637,50 @@
         function renderizarHistorialTotal() {
             const listaEl = document.getElementById('listaHistorialTotal');
             listaEl.innerHTML = '';
-            if (datos.length === 0) {
-                listaEl.innerHTML = `<div class="empty-msg">${t('msgNoHistory')}</div>`;
+            const deliveriesValidos = datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
+            if (deliveriesValidos.length === 0) {
+                listaEl.innerHTML = `<div class="empty-msg">${t('msgNoDeliveriesHistory')}</div>`;
                 return;
             }
-            [...datos].reverse().forEach((d, revIdx) => {
-                const idx = datos.length - 1 - revIdx;
-                const esGasto = d.tipo === 'gasto';
-                let etiqueta = '';
-                let colorMonto = '#0f172a';
-                if (esGasto) {
-                    etiqueta = d.tipoGasto === 'gasolina' ? (currentLang === 'es' ? '⛽ Gasolina' : '⛽ Gas') : (currentLang === 'es' ? '🍔 Comida' : '🍔 Food');
-                    colorMonto = '#ef4444';
-                } else {
-                    etiqueta = currentLang === 'es' ? '📦 Delivery' : '📦 Delivery';
-                    colorMonto = '#10b981';
-                }
-                const editTxt = currentLang === 'es' ? 'Editar' : 'Edit';
-                const delTxt = currentLang === 'es' ? 'Borrar' : 'Delete';
+            [...deliveriesValidos].reverse().forEach(d => {
                 const dateLbl = currentLang === 'es' ? 'Fecha' : 'Date';
                 const timeLbl = currentLang === 'es' ? 'Hora' : 'Time';
-
                 listaEl.innerHTML += `
                     <li>
                         <div class="delivery-info">
-                            <strong style="color: ${colorMonto};">${etiqueta}: $${d.monto.toFixed(2)}</strong>
+                            <strong style="color: #10b981;">$${d.monto.toFixed(2)}</strong>
                             <span>${dateLbl}: ${obtenerFechaSegura(d)} | ${timeLbl}: ${d.hora}</span>
                         </div>
-                        <div class="actions">
-                            <button class="btn-action btn-edit" onclick="${esGasto ? `editarGasto(${idx})` : `editarEntrega(${idx})`}; cerrarHistorialTotal();">${editTxt}</button>
-                            <button class="btn-action btn-delete" onclick="${esGasto ? `eliminarGasto(${idx})` : `eliminarEntrega(${idx})`}; renderizarHistorialTotal();">${delTxt}</button>
+                    </li>`;
+            });
+        }
+
+        function abrirHistorialGastos() {
+            document.getElementById('historialGastosScreen').style.display = 'block';
+            renderizarHistorialGastos();
+        }
+
+        function cerrarHistorialGastos() {
+            document.getElementById('historialGastosScreen').style.display = 'none';
+        }
+
+        function renderizarHistorialGastos() {
+            const listaEl = document.getElementById('listaHistorialGastos');
+            listaEl.innerHTML = '';
+            const gastosValidos = datos.filter(d => d.tipo === 'gasto' && d.monto > 0);
+            if (gastosValidos.length === 0) {
+                listaEl.innerHTML = `<div class="empty-msg">${t('msgNoExpensesHistory')}</div>`;
+                return;
+            }
+            [...gastosValidos].reverse().forEach(d => {
+                let etiqueta = d.tipoGasto === 'gasolina' ? (currentLang === 'es' ? '⛽ Gasolina' : '⛽ Gas') : (currentLang === 'es' ? '🍔 Comida' : '🍔 Food');
+                const dateLbl = currentLang === 'es' ? 'Fecha' : 'Date';
+                const timeLbl = currentLang === 'es' ? 'Hora' : 'Time';
+                listaEl.innerHTML += `
+                    <li>
+                        <div class="delivery-info">
+                            <strong style="color: #ef4444;">${etiqueta}: $${d.monto.toFixed(2)}</strong>
+                            <span>${dateLbl}: ${obtenerFechaSegura(d)} | ${timeLbl}: ${d.hora}</span>
                         </div>
                     </li>`;
             });
@@ -1246,7 +1276,7 @@
         }
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=1.40').catch(() => {});
+            navigator.serviceWorker.register('sw.js?v=1.41').catch(() => {});
         }
     </script>
 </body>
