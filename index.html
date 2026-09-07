@@ -9,8 +9,8 @@
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.41</title>
-    <link rel="manifest" href="manifest.json?v=1.41">
+    <title>Control Delivery v1.42</title>
+    <link rel="manifest" href="manifest.json?v=1.42">
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -67,7 +67,7 @@
         .btn-secondary { background: #64748b; margin-top: 5px; }
         .btn-danger { background: #ef4444; margin-top: 10px; }
         .btn-print { background: #3b82f6; margin-bottom: 10px; }
-        .btn-excel { background: #107c41; }
+        .btn-excel { background: #107c41; margin-bottom: 15px; }
         .btn-link { background: none; color: #64748b; font-size: 0.9rem; margin-top: 5px; border: none; text-decoration: underline; padding: 5px; cursor: pointer; width: 100%; }
         ul { list-style: none; max-height: 250px; overflow-y: auto; }
         li { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
@@ -190,7 +190,7 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.41</span>
+        <span>Versión 1.42</span>
         <div class="header-buttons">
             <button class="theme-toggle" onclick="toggleLanguage()" id="btnLang" title="Cambiar Idioma / Language">EN</button>
             <button class="theme-toggle" onclick="toggleSound()" id="btnSound" title="Sonido">🔊</button>
@@ -305,20 +305,17 @@
                 <div class="breakdown-list" id="desgloseMeses"></div>
             </div>
 
-            <!-- BOTONES ORDENADOS SEGÚN SOLICITUD -->
+            <!-- BOTONES ORDENADOS Y CON ANCHO UNIFORME -->
             <button class="btn-secondary" onclick="abrirHistorialTotal()" data-i18n="btnAllHistory" style="margin-bottom: 10px;">📋 Ver Todos los Movimientos</button>
-            <button class="btn-print" onclick="window.print()" data-i18n="btnPrint">🖨️ Imprimir / Guardar PDF</button>
+            <button class="btn-print" onclick="window.print()" data-i18n="btnPrint" style="margin-bottom: 10px;">🖨️ Imprimir / Guardar PDF</button>
+            <button class="btn-excel" id="btnShowExport" onclick="mostrarOpcionesExportar()" data-i18n="btnExportExcel">📊 Exportar a Excel</button>
             
-            <div class="card" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 15px;">
-                <button class="btn-excel" id="btnShowExport" onclick="mostrarOpcionesExportar()" data-i18n="btnExportExcel">📊 Exportar a Excel (CSV)</button>
-                
-                <div id="opcionesExportar" style="display: none; margin-top: 10px;">
-                    <span class="subtitle" data-i18n="exportSub">Escribe el nombre que deseas para el archivo:</span>
-                    <input type="text" id="nombreReporteInput" value="reporte_deliveries" placeholder="Nombre del archivo">
-                    <div style="display: flex; gap: 10px; margin-top: 10px;">
-                        <button class="btn-secondary" style="margin-top:0;" onclick="cancelarExportar()" data-i18n="btnCancel">Cancelar</button>
-                        <button class="btn-excel" style="margin-top:0; margin-bottom:0;" onclick="exportarExcel()" data-i18n="btnDownload">Descargar</button>
-                    </div>
+            <div id="opcionesExportar" class="card" style="display: none; margin-bottom: 15px; background: var(--card-bg); border: 1px solid var(--border-color);">
+                <span class="subtitle" data-i18n="exportSub">Escribe el nombre que deseas para el archivo:</span>
+                <input type="text" id="nombreReporteInput" value="reporte_deliveries" placeholder="Nombre del archivo">
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button class="btn-secondary" style="margin-top:0;" onclick="cancelarExportar()" data-i18n="btnCancel">Cancelar</button>
+                    <button class="btn-excel" style="margin-top:0; margin-bottom:0;" onclick="exportarExcel()" data-i18n="btnDownload">Descargar</button>
                 </div>
             </div>
         </div>
@@ -464,6 +461,7 @@
                 btnPrint: "🖨️ Imprimir / Guardar PDF",
                 btnAllHistory: "📋 Ver Todos los Movimientos",
                 btnAllExpensesHistory: "📋 Ver Todos los Gastos",
+                btnExportExcel: "📊 Exportar a Excel",
                 historyScreenTitle: "Historial de Deliveries",
                 expensesHistoryScreenTitle: "Historial de Gastos",
                 btnBack: "← Volver",
@@ -532,6 +530,7 @@
                 btnPrint: "🖨️ Print / Save PDF",
                 btnAllHistory: "📋 View All Movements",
                 btnAllExpensesHistory: "📋 View All Expenses",
+                btnExportExcel: "📊 Export to Excel",
                 historyScreenTitle: "Deliveries History",
                 expensesHistoryScreenTitle: "Expenses History",
                 btnBack: "← Back",
@@ -1276,7 +1275,7 @@
         }
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=1.41').catch(() => {});
+            navigator.serviceWorker.register('sw.js?v=1.42').catch(() => {});
         }
     </script>
 </body>
