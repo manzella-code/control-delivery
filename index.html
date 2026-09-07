@@ -9,8 +9,8 @@
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.43</title>
-    <link rel="manifest" href="manifest.json?v=1.43">
+    <title>Control Delivery v1.44</title>
+    <link rel="manifest" href="manifest.json?v=1.44">
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -99,6 +99,23 @@
             overflow-y: auto;
         }
 
+        /* SELECTOR DE IDIOMA COMPACTO Y ELEGANTE */
+        #langSelect {
+            background: #ffffff;
+            color: #10b981;
+            border: 1px solid #10b981;
+            border-radius: 6px;
+            padding: 3px 6px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            outline: none;
+        }
+        #langSelect option {
+            background: #ffffff;
+            color: #333333;
+        }
+
         /* MODO OSCURO */
         [data-theme="dark"] {
             --bg-color: #121212 !important;
@@ -111,7 +128,9 @@
         [data-theme="dark"] #historialTotalScreen, [data-theme="dark"] #historialGastosScreen { background: var(--bg-color); color: var(--text-color); }
         [data-theme="dark"] .card, [data-theme="dark"] .modal-card { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); }
         [data-theme="dark"] h2 { color: #f1f5f9; }
-        [data-theme="dark"] input, [data-theme="dark"] select { background: #2d2d2d; color: #e0e0e0; border-color: #444; }
+        [data-theme="dark"] input, [data-theme="dark"] select:not(#langSelect) { background: #2d2d2d; color: #e0e0e0; border-color: #444; }
+        [data-theme="dark"] #langSelect { background: #1e1e1e; color: #34d399; border-color: #34d399; }
+        [data-theme="dark"] #langSelect option { background: #1e1e1e; color: #e0e0e0; }
         [data-theme="dark"] .stat-box { background: #262626; border-color: #383838; }
         [data-theme="dark"] .stat-box strong { color: #f8fafc; }
         [data-theme="dark"] .stat-box small { color: #94a3b8; }
@@ -180,17 +199,17 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.43</span>
+        <span>Versión 1.44</span>
         <div class="header-buttons">
-            <select id="langSelect" class="theme-toggle" style="background:transparent; border:none; color:#10b981; font-weight:bold; font-size:14px; cursor:pointer; outline:none;" onchange="cambiarIdiomaSelect(this.value)">
-                <option value="es" style="background:#fff; color:#333;">ES</option>
-                <option value="en" style="background:#fff; color:#333;">EN</option>
-                <option value="pt" style="background:#fff; color:#333;">PT</option>
-                <option value="fr" style="background:#fff; color:#333;">FR</option>
-                <option value="it" style="background:#fff; color:#333;">IT</option>
-                <option value="de" style="background:#fff; color:#333;">DE</option>
-                <option value="zh" style="background:#fff; color:#333;">ZH</option>
-                <option value="ja" style="background:#fff; color:#333;">JA</option>
+            <select id="langSelect" onchange="cambiarIdiomaSelect(this.value)">
+                <option value="es">Español</option>
+                <option value="en">English</option>
+                <option value="pt">Português</option>
+                <option value="fr">Français</option>
+                <option value="it">Italiano</option>
+                <option value="de">Deutsch</option>
+                <option value="zh">中文</option>
+                <option value="ja">日本語</option>
             </select>
             <button class="theme-toggle" onclick="toggleSound()" id="btnSound" title="Sonido">🔊</button>
             <button class="theme-toggle" onclick="toggleDarkMode()" id="btnTheme" title="Modo">🌙</button>
@@ -1148,7 +1167,8 @@
             if (!el) return;
             el.innerText = texto;
             el.style.display = 'block';
-            setTimeout(() => { el.style.display = 'none'; }, 4000);
+            // Aumentado a 8 segundos (8000ms) para que se lea perfectamente
+            setTimeout(() => { el.style.display = 'none'; }, 8000);
         }
 
         function abrirCustomConfirm(mensaje, accion) {
@@ -1696,7 +1716,7 @@
         }
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=1.43').catch(() => {});
+            navigator.serviceWorker.register('sw.js?v=1.44').catch(() => {});
         }
     </script>
 </body>
