@@ -9,8 +9,8 @@
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.38</title>
-    <link rel="manifest" href="manifest.json?v=1.38">
+    <title>Control Delivery v1.39</title>
+    <link rel="manifest" href="manifest.json?v=1.39">
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -149,7 +149,7 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.38</span>
+        <span>Versión 1.39</span>
         <div class="header-buttons">
             <button class="theme-toggle" onclick="toggleLanguage()" id="btnLang" title="Cambiar Idioma / Language">EN</button>
             <button class="theme-toggle" onclick="toggleSound()" id="btnSound" title="Sonido">🔊</button>
@@ -230,8 +230,9 @@
                         <strong id="diasSemana">0</strong>
                     </div>
                 </div>
-                <!-- Lista de deliveries semanales añadida -->
-                <ul id="listaSemana" style="margin-top: 10px;"></ul>
+                <!-- Botón para alternar visibilidad del reporte semanal -->
+                <button class="btn-secondary" id="btnToggleWeek" onclick="toggleListaSemana()" style="margin-top: 5px; margin-bottom: 5px;" data-i18n="btnShowWeekList">Ver Listado de la Semana</button>
+                <ul id="listaSemana" style="display: none; margin-top: 5px;"></ul>
             </div>
 
             <div class="card">
@@ -453,6 +454,8 @@
                 msgNoExpensesToday: "No has registrado gastos hoy",
                 msgNoDeliveriesHistory: "No hay deliveries registrados",
                 msgNoDeliveriesWeek: "No hay deliveries en esta semana",
+                btnShowWeekList: "Ver Listado de la Semana",
+                btnHideWeekList: "Ocultar Listado de la Semana",
                 confirmDeleteDelivery: "¿Estás seguro de eliminar este registro de delivery?",
                 confirmDeleteExpense: "¿Estás seguro de eliminar este gasto registrado?",
                 splashSub: "Cargando aplicación..."
@@ -518,6 +521,8 @@
                 msgNoExpensesToday: "No expenses registered today",
                 msgNoDeliveriesHistory: "No deliveries registered",
                 msgNoDeliveriesWeek: "No deliveries this week",
+                btnShowWeekList: "View Week List",
+                btnHideWeekList: "Hide Week List",
                 confirmDeleteDelivery: "Are you sure you want to delete this delivery record?",
                 confirmDeleteExpense: "Are you sure you want to delete this expense record?",
                 splashSub: "Loading application..."
@@ -540,6 +545,11 @@
                 el.placeholder = t(key);
             });
             document.getElementById('btnLang').textContent = currentLang === 'es' ? 'EN' : 'ES';
+            // Actualizar texto del botón de la semana según su estado actual
+            const btnToggle = document.getElementById('btnToggleWeek');
+            if (btnToggle) {
+                btnToggle.innerText = verListaSemana ? t('btnHideWeekList') : t('btnShowWeekList');
+            }
         }
 
         function toggleLanguage() {
@@ -559,6 +569,7 @@
         let editandoGastoIndex = null;
         let balanceChart = null;
         let accionPendienteConfirmacion = null;
+        let verListaSemana = false;
         
         let soundEnabled = localStorage.getItem('soundEnabled') !== 'false';
         
@@ -635,6 +646,19 @@
             const accion = accionPendienteConfirmacion;
             cerrarCustomConfirm();
             if (accion) { accion(); }
+        }
+
+        function toggleListaSemana() {
+            verListaSemana = !verListaSemana;
+            const lista = document.getElementById('listaSemana');
+            const btn = document.getElementById('btnToggleWeek');
+            if (verListaSemana) {
+                lista.style.display = 'block';
+                btn.innerText = t('btnHideWeekList');
+            } else {
+                lista.style.display = 'none';
+                btn.innerText = t('btnShowWeekList');
+            }
         }
 
         function cambiarPestana(pestana) {
@@ -1192,7 +1216,7 @@
         }
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=1.38').catch(() => {});
+            navigator.serviceWorker.register('sw.js?v=1.39').catch(() => {});
         }
     </script>
 </body>
