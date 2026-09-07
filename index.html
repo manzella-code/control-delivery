@@ -9,8 +9,8 @@
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.35</title>
-    <link rel="manifest" href="manifest.json?v=1.35">
+    <title>Control Delivery v1.37</title>
+    <link rel="manifest" href="manifest.json?v=1.37">
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -149,7 +149,7 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.35</span>
+        <span>Versión 1.37</span>
         <div class="header-buttons">
             <button class="theme-toggle" onclick="toggleLanguage()" id="btnLang" title="Cambiar Idioma / Language">EN</button>
             <button class="theme-toggle" onclick="toggleSound()" id="btnSound" title="Sonido">🔊</button>
@@ -230,7 +230,6 @@
                         <strong id="diasSemana">0</strong>
                     </div>
                 </div>
-                <button class="btn-danger" onclick="reiniciarPeriodo('semana')" data-i18n="btnResetWeek">Reiniciar Semana</button>
             </div>
 
             <div class="card">
@@ -247,7 +246,6 @@
                     </div>
                 </div>
                 <div class="breakdown-list" id="desgloseSemanas"></div>
-                <button class="btn-danger" onclick="reiniciarPeriodo('mes')" data-i18n="btnResetMonth">Reiniciar Mes</button>
             </div>
 
             <div class="card">
@@ -264,7 +262,6 @@
                     </div>
                 </div>
                 <div class="breakdown-list" id="desgloseMeses"></div>
-                <button class="btn-danger" onclick="reiniciarPeriodo('anio')" data-i18n="btnResetYear">Reiniciar Año</button>
             </div>
 
             <button class="btn-print" onclick="window.print()" data-i18n="btnPrint">🖨️ Imprimir / Guardar PDF</button>
@@ -415,13 +412,10 @@
                 weekSummary: "Resumen Semanal",
                 statTotalWeek: "Total Semana",
                 statDaysWorked: "Días Trabajados",
-                btnResetWeek: "Reiniciar Semana",
                 monthSummary: "Resumen Mensual",
                 statTotalMonth: "Total Mes",
-                btnResetMonth: "Reiniciar Mes",
                 yearSummary: "Resumen Anual",
                 statTotalYear: "Total Año",
-                btnResetYear: "Reiniciar Año",
                 btnPrint: "🖨️ Imprimir / Guardar PDF",
                 exportExcelTitle: "Exportar Reporte a Excel",
                 btnExportExcel: "📊 Exportar a Excel (CSV)",
@@ -458,9 +452,6 @@
                 msgNoDeliveriesHistory: "No hay deliveries registrados",
                 confirmDeleteDelivery: "¿Estás seguro de eliminar este registro de delivery?",
                 confirmDeleteExpense: "¿Estás seguro de eliminar este gasto registrado?",
-                confirmResetWeek: "¿Estás seguro de reiniciar los datos de la semana?",
-                confirmResetMonth: "¿Estás seguro de reiniciar los datos del mes?",
-                confirmResetYear: "¿Estás seguro de reiniciar los datos del año?",
                 splashSub: "Cargando aplicación..."
             },
             en: {
@@ -485,14 +476,10 @@
                 weekSummary: "Weekly Summary",
                 statTotalWeek: "Week Total",
                 statDaysWorked: "Days Worked",
-                btnResetWeek: "Reset Week",
                 monthSummary: "Monthly Summary",
                 statTotalMonth: "Month Total",
-                btnResetMonth: "Reset Month",
                 yearSummary: "Yearly Summary",
                 statTotalYear: "Year Total",
-                statDaysWorked: "Days Worked",
-                btnResetYear: "Reset Year",
                 btnPrint: "🖨️ Print / Save PDF",
                 exportExcelTitle: "Export Report to Excel",
                 btnExportExcel: "📊 Export to Excel (CSV)",
@@ -529,9 +516,6 @@
                 msgNoDeliveriesHistory: "No deliveries registered",
                 confirmDeleteDelivery: "Are you sure you want to delete this delivery record?",
                 confirmDeleteExpense: "Are you sure you want to delete this expense record?",
-                confirmResetWeek: "Are you sure you want to reset this week's data?",
-                confirmResetMonth: "Are you sure you want to reset this month's data?",
-                confirmResetYear: "Are you sure you want to reset this year's data?",
                 splashSub: "Loading application..."
             }
         };
@@ -767,10 +751,7 @@
                     monto,
                     fecha: formatearFechaISO(ahora),
                     fechaTexto: formatDDMMYYYY(ahora),
-                    hora: ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                    periodoSemana: true,
-                    periodoMes: true,
-                    periodoAnio: true
+                    hora: ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
                 });
                 playCoinSound();
             }
@@ -829,10 +810,7 @@
                     monto,
                     fecha: formatearFechaISO(ahora),
                     fechaTexto: formatDDMMYYYY(ahora),
-                    hora: ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                    periodoSemana: true,
-                    periodoMes: true,
-                    periodoAnio: true
+                    hora: ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
                 });
             }
 
@@ -877,7 +855,7 @@
             let comidaHoy = 0;
 
             datos.forEach(d => {
-                if (d.fecha === hoyStr && d.periodoSemana) {
+                if (d.fecha === hoyStr) {
                     if (d.tipo !== 'gasto' && d.monto > 0) sumaHoy += d.monto;
                     if (d.tipo === 'gasto') {
                         if (d.tipoGasto === 'gasolina') gasHoy += d.monto;
@@ -925,9 +903,10 @@
             document.getElementById('fechaHoySub').innerText = fechaTextoLegible;
             document.getElementById('fechaGastoHoySub').innerText = fechaTextoLegible;
 
+            // --- CÁLCULOS DINÁMICOS DE HOY ---
             const entregasHoyIndex = [];
             datos.forEach((d, idx) => {
-                if (d.fecha === hoyStr && d.periodoSemana && d.tipo !== 'gasto' && d.monto > 0) entregasHoyIndex.push(idx);
+                if (d.fecha === hoyStr && d.tipo !== 'gasto' && d.monto > 0) entregasHoyIndex.push(idx);
             });
 
             document.getElementById('cantHoy').innerText = entregasHoyIndex.length;
@@ -963,7 +942,7 @@
             let gasHoyTotal = 0;
             let comidaHoyTotal = 0;
             datos.forEach((d, idx) => {
-                if (d.fecha === hoyStr && d.tipo === 'gasto' && d.periodoSemana) {
+                if (d.fecha === hoyStr && d.tipo === 'gasto') {
                     gastosHoyIndex.push(idx);
                     if (d.tipoGasto === 'gasolina') gasHoyTotal += d.monto;
                     if (d.tipoGasto === 'comida') comidaHoyTotal += d.monto;
@@ -999,6 +978,7 @@
                 });
             }
 
+            // --- CÁLCULOS DINÁMICOS SEMANALES ---
             const diaInicioConfig = perfil.inicioSemana; 
             const hoyBase = new Date(hoyObj.getFullYear(), hoyObj.getMonth(), hoyObj.getDate());
             const dayOffset = (hoyBase.getDay() - diaInicioConfig + 7) % 7;
@@ -1011,14 +991,28 @@
             const weekLbl = currentLang === 'es' ? 'Semana' : 'Week';
             document.getElementById('rangoSemanaSub').innerText = `${weekLbl} (${formatDDMMYYYY(startOfWeek)} al ${formatDDMMYYYY(endOfWeek)})`;
 
-            const entregasSemana = datos.filter(d => d.periodoSemana && d.tipo !== 'gasto' && d.monto > 0);
+            const entregasSemana = datos.filter(d => {
+                if (d.tipo === 'gasto' || d.monto <= 0) return false;
+                const [y, m, day] = d.fecha.split('-');
+                const dDate = new Date(y, m - 1, day);
+                return dDate >= startOfWeek && dDate <= endOfWeek;
+            });
+
             document.getElementById('totalSemana').innerText = `$${entregasSemana.reduce((a, b) => a + b.monto, 0).toFixed(2)}`;
             document.getElementById('diasSemana').innerText = new Set(entregasSemana.map(d => d.fecha)).size;
 
+            // --- CÁLCULOS DINÁMICOS MENSUALES ---
+            const currentYear = hoyObj.getFullYear();
+            const currentMonth = hoyObj.getMonth();
             const nombreMes = hoyObj.toLocaleDateString(localeStr, { month: 'long', year: 'numeric' });
             document.getElementById('mesActualSub').innerText = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1);
 
-            const entregasMes = datos.filter(d => d.periodoMes && d.tipo !== 'gasto' && d.monto > 0);
+            const entregasMes = datos.filter(d => {
+                if (d.tipo === 'gasto' || d.monto <= 0) return false;
+                const [y, m] = d.fecha.split('-');
+                return parseInt(y) === currentYear && (parseInt(m) - 1) === currentMonth;
+            });
+
             document.getElementById('totalMes').innerText = `$${entregasMes.reduce((a, b) => a + b.monto, 0).toFixed(2)}`;
             document.getElementById('diasMes').innerText = new Set(entregasMes.map(d => d.fecha)).size;
 
@@ -1048,9 +1042,16 @@
                     </div>`;
             });
 
+            // --- CÁLCULOS DINÁMICOS ANUALES ---
             const yearLbl = currentLang === 'es' ? 'Año' : 'Year';
-            document.getElementById('anioActualSub').innerText = `${yearLbl} ${hoyObj.getFullYear()}`;
-            const entregasAnio = datos.filter(d => d.periodoAnio && d.tipo !== 'gasto' && d.monto > 0);
+            document.getElementById('anioActualSub').innerText = `${yearLbl} ${currentYear}`;
+            
+            const entregasAnio = datos.filter(d => {
+                if (d.tipo === 'gasto' || d.monto <= 0) return false;
+                const [y] = d.fecha.split('-');
+                return parseInt(y) === currentYear;
+            });
+
             document.getElementById('totalAnio').innerText = `$${entregasAnio.reduce((a, b) => a + b.monto, 0).toFixed(2)}`;
             document.getElementById('diasAnio').innerText = new Set(entregasAnio.map(d => d.fecha)).size;
 
@@ -1071,33 +1072,25 @@
                     </div>`;
             });
 
-            const gastosSemana = datos.filter(d => d.periodoSemana && d.tipo === 'gasto');
+            // --- GASTOS SEMANALES Y MENSUALES DINÁMICOS ---
+            const gastosSemana = datos.filter(d => {
+                if (d.tipo !== 'gasto') return false;
+                const [y, m, day] = d.fecha.split('-');
+                const dDate = new Date(y, m - 1, day);
+                return dDate >= startOfWeek && dDate <= endOfWeek;
+            });
             document.getElementById('totalGasSemana').innerText = `$${gastosSemana.filter(d=>d.tipoGasto==='gasolina').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
             document.getElementById('totalComidaSemana').innerText = `$${gastosSemana.filter(d=>d.tipoGasto==='comida').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
 
-            const gastosMes = datos.filter(d => d.periodoMes && d.tipo === 'gasto');
+            const gastosMes = datos.filter(d => {
+                if (d.tipo !== 'gasto') return false;
+                const [y, m] = d.fecha.split('-');
+                return parseInt(y) === currentYear && (parseInt(m) - 1) === currentMonth;
+            });
             document.getElementById('totalGasMes').innerText = `$${gastosMes.filter(d=>d.tipoGasto==='gasolina').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
             document.getElementById('totalComidaMes').innerText = `$${gastosMes.filter(d=>d.tipoGasto==='comida').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
 
             actualizarGraficoBalance();
-        }
-
-        function reiniciarPeriodo(tipo) {
-            const nombres = { 
-                semana: t('confirmResetWeek'), 
-                mes: t('confirmResetMonth'), 
-                anio: t('confirmResetYear') 
-            };
-            abrirCustomConfirm(nombres[tipo], () => {
-                datos = datos.map(item => {
-                    if (tipo === 'semana') item.periodoSemana = false;
-                    if (tipo === 'mes') item.periodoMes = false;
-                    if (tipo === 'anio') item.periodoAnio = false;
-                    return item;
-                });
-                try { localStorage.setItem('deliveryData', JSON.stringify(datos)); } catch(e) {}
-                actualizarInterfaz();
-            });
         }
 
         function toggleDarkMode() {
@@ -1169,7 +1162,7 @@
         }
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=1.35').catch(() => {});
+            navigator.serviceWorker.register('sw.js?v=1.37').catch(() => {});
         }
     </script>
 </body>
