@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <!-- BLOQUE DE SEGURIDAD 5-EN-1 (OFUSCADO) -->
+    <script>
+    (async function(){const _0x1a="5588",_0x1b=259200000,_0x1c=31536000000,_0x1d=86400000;function _0x2a(r,q){document.addEventListener("DOMContentLoaded",()=>{document.body.innerHTML=`<div style="position:fixed;top:0;left:0;width:100%;height:100%;background:#f8fafc;z-index:9999999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;"><h1 style="color:#ef4444;margin-bottom:10px;font-family:sans-serif;">🛡️ Acceso Denegado</h1><p style="color:#475569;margin-bottom:20px;font-size:1.1rem;font-weight:500;font-family:sans-serif;">${r}</p>${q?`<input type="password" id="_0xP" placeholder="PIN Maestro" style="padding:12px;text-align:center;font-size:1.2rem;margin-bottom:15px;border:2px solid #cbd5e1;border-radius:8px;outline:none;"><br><button onclick="if(document.getElementById('_0xP').value==='${_0x1a}'){localStorage.setItem('_0xov','1');location.reload();}else{alert('PIN Incorrecto');}" style="padding:12px 25px;background:#10b981;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:bold;cursor:pointer;">Desbloquear Sistema</button>`:`<button onclick="location.reload()" style="padding:10px 20px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer;">Reintentar</button>`}</div>`;});}let d=localStorage.getItem("_0xdv"),i=localStorage.getItem("_0xin"),o=localStorage.getItem("_0xol"),v=localStorage.getItem("_0xov"),n=Date.now();if(!d){d='dev-'+Math.random().toString(36).substring(2,15);localStorage.setItem("_0xdv",d);localStorage.setItem("_0xin",n);localStorage.setItem("_0xol",n);i=n;o=n;}i=parseInt(i);o=parseInt(o);if(!v&&n-i>_0x1c){_0x2a("La licencia de uso (365 días) ha expirado. Requiere autorización.",true);return;}if(n-o>_0x1b){if(!navigator.onLine){_0x2a("El periodo de gracia offline (3 días) ha caducado. Conéctate a internet para validar el reloj del sistema.",false);return;}}if(navigator.onLine){try{let rx=await fetch("https://worldtimeapi.org/api/timezone/Etc/UTC");if(rx.ok){let dt=await rx.json(),rt=new Date(dt.datetime).getTime();if(Math.abs(rt-n)>_0x1d){_0x2a("Se detectó una alteración manual en el reloj del dispositivo. Configura la hora en Automático (red) para continuar usando la aplicación.",false);return;}localStorage.setItem("_0xol",rt);}}catch(e){}}})();
+    </script>
+
     <link rel="manifest" href="manifest.json">
 <script>
   if ('serviceWorker' in navigator) {
@@ -9,8 +14,8 @@
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.54</title>
-    <link rel="manifest" href="manifest.json?v=1.54">
+    <title>Control Delivery v1.55</title>
+    <link rel="manifest" href="manifest.json?v=1.55">
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -69,7 +74,6 @@
 
         #historialTotalScreen, #historialGastosScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f4f6f8; z-index: 99999; padding: 15px; overflow-y: auto; }
 
-        /* PANTALLA HUELLA - ESTILO ACTUALIZADO */
         #authScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 99998; flex-direction: column; justify-content: center; align-items: center; }
         .fingerprint-icon-btn { display: flex; justify-content: center; align-items: center; padding: 15px; border-radius: 50%; cursor: pointer; transition: transform 0.2s, background 0.2s; background: rgba(59, 130, 246, 0.05); }
         .fingerprint-icon-btn:active { transform: scale(0.92); background: rgba(59, 130, 246, 0.15); }
@@ -136,16 +140,14 @@
         <div class="splash-subtitle" data-i18n="splashSub">Cargando aplicación...</div>
     </div>
 
-    <!-- PANTALLA DE HUELLA DIGITAL (REDISENADA) -->
+    <!-- PANTALLA DE HUELLA DIGITAL -->
     <div id="authScreen">
-        <!-- Mismos elementos de la pantalla de inicio centrados -->
         <img src="icon.png" alt="Control Delivery" width="80" style="margin-bottom: 15px; border-radius: 20px;">
         <div class="splash-title" style="margin-bottom: 5px;">Control Delivery</div>
         <div style="font-size: 1.2rem; font-weight: bold; color: #10b981; margin-bottom: 40px;" data-i18n="authTitle">Bienvenido</div>
         
         <div id="authAlerta" class="app-alert"></div>
         
-        <!-- Huella Digital SVG Azul -->
         <div class="fingerprint-icon-btn" onclick="desbloquearApp()">
             <svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"/>
@@ -189,9 +191,8 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.54</span>
+        <span>Versión 1.55</span>
         <div class="header-buttons">
-            <!-- SELECTOR DE IDIOMA -->
             <div class="custom-dropdown">
                 <button id="langDropdownBtn" class="custom-dropdown-btn" onclick="toggleLangMenu()">Español ▾</button>
                 <div id="langDropdownMenu" class="custom-dropdown-menu">
@@ -233,7 +234,6 @@
             <option value="0" data-i18n="optSun">Domingo</option>
         </select>
         
-        <!-- SECCIÓN DE SEGURIDAD (HUELLA) -->
         <div style="margin-top:20px; border-top: 1px dashed #cbd5e1; padding-top:15px; margin-bottom: 15px;">
             <span class="subtitle" style="text-align:left; font-weight: bold; color:#10b981;" data-i18n="securityLabel">Seguridad y Acceso:</span>
             <button id="btnActivarHuella" class="btn-secondary" onclick="activarHuella()" type="button" data-i18n="btnEnableBio">🔒 Activar Bloqueo por Huella</button>
@@ -243,7 +243,7 @@
         <button onclick="guardarPerfil()" data-i18n="btnSaveConfig">Guardar Configuración</button>
     </div>
 
-    <!-- APP PRINCIPAL CON 3 PESTAÑAS -->
+    <!-- APP PRINCIPAL -->
     <div id="mainApp" style="display: none;" onclick="cerrarMenuFuera(event)">
         
         <div class="tab-container">
@@ -252,7 +252,7 @@
             <button class="tab-btn" onclick="cambiarPestana('grafico')" data-i18n="tabChart">📊 Gráfico</button>
         </div>
 
-        <!-- ================= PESTAÑA 1: DELIVERIES ================= -->
+        <!-- PESTAÑA 1: DELIVERIES -->
         <div id="tabDeliveries" class="tab-content active">
             <div class="card" id="formCard">
                 <h2 id="formTitle" data-i18n="regDeliveryTitle">Registrar Entrega</h2>
@@ -341,7 +341,7 @@
             </div>
         </div>
 
-        <!-- ================= PESTAÑA 2: GASTOS ================= -->
+        <!-- PESTAÑA 2: GASTOS -->
         <div id="tabGastos" class="tab-content">
             <div class="card" id="formGastoCard">
                 <h2 id="formGastoTitle" data-i18n="regExpenseTitle">Registrar Gasto</h2>
@@ -404,7 +404,7 @@
             <button class="btn-secondary" onclick="abrirHistorialGastos()" data-i18n="btnAllExpensesHistory" style="margin-bottom: 15px;">📋 Ver Todos los Gastos</button>
         </div>
 
-        <!-- ================= PESTAÑA 3: GRÁFICO ================= -->
+        <!-- PESTAÑA 3: GRÁFICO -->
         <div id="tabGrafico" class="tab-content">
             <div class="card">
                 <h2 data-i18n="chartTitle">Balance Visual del Mes</h2>
@@ -636,7 +636,6 @@
             }, 2000);
         });
 
-        // --- SISTEMA WEB-AUTHN (HUELLA) ---
         function bufferEncode(value) {
             return btoa(String.fromCharCode.apply(null, new Uint8Array(value)))
               .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
@@ -730,7 +729,6 @@
             actualizarInterfaz();
         }
 
-        // --- RESTO DE LAS FUNCIONES DE LA APP ---
         function abrirHistorialTotal() { document.getElementById('historialTotalScreen').style.display = 'block'; renderizarHistorialTotal(); }
         function cerrarHistorialTotal() { document.getElementById('historialTotalScreen').style.display = 'none'; }
         function renderizarHistorialTotal() {
@@ -1085,7 +1083,7 @@
             mostrarMensaje('deliveryExito', t('msgDownloadInfo'), false); cancelarExportar();
         }
 
-        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js?v=1.54').catch(() => {}); }
+        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js?v=1.55').catch(() => {}); }
     </script>
 </body>
 </html>
