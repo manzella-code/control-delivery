@@ -9,8 +9,8 @@
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.51</title>
-    <link rel="manifest" href="manifest.json?v=1.51">
+    <title>Control Delivery v1.52</title>
+    <link rel="manifest" href="manifest.json?v=1.52">
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -235,7 +235,7 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.51</span>
+        <span>Versión 1.52</span>
         <div class="header-buttons">
             <!-- SELECTOR DE IDIOMA PERSONALIZADO -->
             <div class="custom-dropdown">
@@ -908,7 +908,7 @@
                 msgInvalidProfile: "Inserisci Nome e ID",
                 msgNoDataExport: "Dati insufficienti.",
                 msgNoDeliveriesToday: "Nessuna consegna oggi",
-                msgNoExpensesToday: "Nenhuma spesa oggi",
+                msgNoExpensesToday: "Nessuna spesa oggi",
                 msgNoDeliveriesHistory: "Nessuna consegna registrata",
                 msgNoExpensesHistory: "Nessuna spesa registrata",
                 confirmDeleteDelivery: "Sei sicuro di voler eliminare?",
@@ -1377,6 +1377,9 @@
 
         function inicializarGrafico() {
             const ctx = document.getElementById('balanceChart').getContext('2d');
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const textColor = isDark ? '#e2e8f0' : '#64748b';
+
             balanceChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -1385,7 +1388,8 @@
                         label: 'Monto ($)',
                         data: [0, 0, 0],
                         backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
-                        borderWidth: 1
+                        borderWidth: 0,
+                        borderRadius: 4
                     }]
                 },
                 options: {
@@ -1393,37 +1397,16 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: { 
-                        x: { ticks: { display: false }, grid: { display: false } }, 
-                        y: { beginAtZero: true } 
+                        x: { 
+                            ticks: { display: true, color: textColor, font: { weight: 'bold', size: 11 } }, 
+                            grid: { display: false } 
+                        }, 
+                        y: { 
+                            beginAtZero: true,
+                            ticks: { color: textColor }
+                        } 
                     }
-                },
-                plugins: [{
-                    id: 'verticalBarLabels',
-                    afterDatasetsDraw(chart) {
-                        const { ctx } = chart;
-                        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-                        chart.data.datasets.forEach((dataset, i) => {
-                            const meta = chart.getDatasetMeta(i);
-                            meta.data.forEach((bar, index) => {
-                                ctx.save();
-                                ctx.fillStyle = isDark ? '#e2e8f0' : '#333333';
-                                ctx.font = 'bold 12px sans-serif';
-                                ctx.textAlign = 'center';
-                                ctx.textBaseline = 'middle';
-                                const label = chart.data.labels[index];
-                                const x = bar.x;
-                                const y = bar.y + (bar.height / 2);
-                                
-                                const targetY = bar.height < 25 ? bar.y - 20 : y;
-                                
-                                ctx.translate(x, targetY);
-                                ctx.rotate(-Math.PI / 2);
-                                ctx.fillText(label, 0, 0);
-                                ctx.restore();
-                            });
-                        });
-                    }
-                }]
+                }
             });
         }
 
@@ -1622,7 +1605,6 @@
                 }
             });
 
-            // Restablecido a etiquetas limpias sin monto, versión 1.51
             balanceChart.data.labels = currentLang === 'es' ? ['Ganancias', 'Gasolina', 'Comidas/Snacks'] : ['Earnings', 'Gas', 'Food/Snacks'];
             balanceChart.data.datasets[0].data = [sumaMes, gasMes, comidaMes];
             balanceChart.update();
@@ -1864,6 +1846,8 @@
         function toggleDarkMode() {
             const html = document.documentElement;
             const btn = document.getElementById('btnTheme');
+            let isDark = false;
+            
             if (html.getAttribute('data-theme') === 'dark') {
                 html.removeAttribute('data-theme');
                 localStorage.setItem('theme', 'light');
@@ -1872,6 +1856,15 @@
                 html.setAttribute('data-theme', 'dark');
                 localStorage.setItem('theme', 'dark');
                 if(btn) btn.textContent = '☀️';
+                isDark = true;
+            }
+            
+            // Actualizar colores de las etiquetas del gráfico dinámicamente
+            if (balanceChart) {
+                const textColor = isDark ? '#e2e8f0' : '#64748b';
+                if(balanceChart.options.scales.x) balanceChart.options.scales.x.ticks.color = textColor;
+                if(balanceChart.options.scales.y) balanceChart.options.scales.y.ticks.color = textColor;
+                balanceChart.update();
             }
             actualizarGraficoBalance();
         }
@@ -1982,7 +1975,7 @@
         }
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=1.51').catch(() => {});
+            navigator.serviceWorker.register('sw.js?v=1.52').catch(() => {});
         }
     </script>
 </body>
