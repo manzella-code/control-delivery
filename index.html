@@ -9,8 +9,8 @@
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.53</title>
-    <link rel="manifest" href="manifest.json?v=1.53">
+    <title>Control Delivery v1.54</title>
+    <link rel="manifest" href="manifest.json?v=1.54">
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -69,10 +69,10 @@
 
         #historialTotalScreen, #historialGastosScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f4f6f8; z-index: 99999; padding: 15px; overflow-y: auto; }
 
-        /* PANTALLA HUELLA */
-        #authScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f4f6f8; z-index: 99998; flex-direction: column; justify-content: center; align-items: center; }
-        .fingerprint-btn { width: 90px; height: 90px; border-radius: 50%; background: #10b981; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 15px rgba(16,185,129,0.4); cursor: pointer; transition: transform 0.2s; }
-        .fingerprint-btn:active { transform: scale(0.95); }
+        /* PANTALLA HUELLA - ESTILO ACTUALIZADO */
+        #authScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 99998; flex-direction: column; justify-content: center; align-items: center; }
+        .fingerprint-icon-btn { display: flex; justify-content: center; align-items: center; padding: 15px; border-radius: 50%; cursor: pointer; transition: transform 0.2s, background 0.2s; background: rgba(59, 130, 246, 0.05); }
+        .fingerprint-icon-btn:active { transform: scale(0.92); background: rgba(59, 130, 246, 0.15); }
 
         .custom-dropdown { position: relative; display: inline-block; }
         .custom-dropdown-btn { background: #ffffff; color: #10b981; border: 1px solid #10b981; border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: bold; cursor: pointer; outline: none; display: flex; align-items: center; gap: 4px; }
@@ -103,6 +103,8 @@
         [data-theme="dark"] .tab-btn.active { background: #1e1e1e; color: #34d399; }
         [data-theme="dark"] .app-alert { background: #451a03; border-color: #78350f; color: #f87171; }
         [data-theme="dark"] .app-success { background: #064e3b; border-color: #065f46; color: #34d399; }
+        [data-theme="dark"] .fingerprint-icon-btn { background: rgba(59, 130, 246, 0.1); }
+        [data-theme="dark"] .fingerprint-icon-btn:active { background: rgba(59, 130, 246, 0.2); }
 
         .header-buttons { display: flex; gap: 6px; align-items: center; }
         .theme-toggle { background: none; border: none; font-size: 16px; cursor: pointer; padding: 4px; width: auto; font-weight: bold; color: #10b981; }
@@ -134,14 +136,30 @@
         <div class="splash-subtitle" data-i18n="splashSub">Cargando aplicación...</div>
     </div>
 
-    <!-- PANTALLA DE HUELLA DIGITAL -->
+    <!-- PANTALLA DE HUELLA DIGITAL (REDISENADA) -->
     <div id="authScreen">
-        <h2 style="font-size: 1.6rem; margin-bottom: 25px;" data-i18n="authTitle">App Bloqueada</h2>
+        <!-- Mismos elementos de la pantalla de inicio centrados -->
+        <img src="icon.png" alt="Control Delivery" width="80" style="margin-bottom: 15px; border-radius: 20px;">
+        <div class="splash-title" style="margin-bottom: 5px;">Control Delivery</div>
+        <div style="font-size: 1.2rem; font-weight: bold; color: #10b981; margin-bottom: 40px;" data-i18n="authTitle">Bienvenido</div>
+        
         <div id="authAlerta" class="app-alert"></div>
-        <div class="fingerprint-btn" onclick="desbloquearApp()">
-            <span style="font-size: 45px;">👆</span>
+        
+        <!-- Huella Digital SVG Azul -->
+        <div class="fingerprint-icon-btn" onclick="desbloquearApp()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"/>
+              <path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"/>
+              <path d="M8.65 22c.21-.66.45-1.32.57-2"/>
+              <path d="M9 6.8a6 6 0 0 1 9 5.2v2"/>
+              <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/>
+              <path d="M14 13.12c0 2.38 0 6.38-1 8.88"/>
+              <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/>
+              <path d="M21.8 16c.2-2 .13-5.35 0-6"/>
+            </svg>
         </div>
-        <p style="margin-top: 25px; color: #64748b; font-size: 0.95rem;" data-i18n="authSub">Toca el círculo para acceder con tu huella</p>
+        
+        <p style="margin-top: 25px; color: #10b981; font-weight: bold; font-size: 1rem;" data-i18n="authSub">Toca la huella para iniciar</p>
     </div>
 
     <!-- HISTORIAL DE DELIVERIES -->
@@ -171,7 +189,7 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.53</span>
+        <span>Versión 1.54</span>
         <div class="header-buttons">
             <!-- SELECTOR DE IDIOMA -->
             <div class="custom-dropdown">
@@ -469,7 +487,7 @@
                 startWeekLabel: "Día que inicia tu semana laboral:",
                 optMon: "Lunes", optTue: "Martes", optWed: "Miércoles", optThu: "Jueves", optFri: "Viernes", optSat: "Sábado", optSun: "Domingo",
                 securityLabel: "Seguridad y Acceso:", btnEnableBio: "🔒 Activar Bloqueo por Huella", btnDisableBio: "🔓 Desactivar Bloqueo por Huella",
-                authTitle: "App Bloqueada", authSub: "Toca el círculo para acceder con tu huella",
+                authTitle: "Bienvenido", authSub: "Toca la huella para iniciar",
                 btnSaveConfig: "Guardar Configuración",
                 tabDeliveries: "📦 Deliveries", tabExpenses: "⛽ Gastos", tabChart: "📊 Gráfico",
                 regDeliveryTitle: "Registrar Entrega", regDeliverySub: "Ingresa el monto del delivery realizado", placeholderMonto: "Monto ($)",
@@ -502,7 +520,7 @@
                 placeholderNombre: "First Name", placeholderApellido: "Last Name", placeholderCedula: "ID / Document",
                 startWeekLabel: "Work week starts on:", optMon: "Monday", optTue: "Tuesday", optWed: "Wednesday", optThu: "Thursday", optFri: "Friday", optSat: "Saturday", optSun: "Sunday",
                 securityLabel: "Security & Access:", btnEnableBio: "🔒 Enable Fingerprint Lock", btnDisableBio: "🔓 Disable Fingerprint Lock",
-                authTitle: "App Locked", authSub: "Tap the circle to use your fingerprint",
+                authTitle: "Welcome", authSub: "Tap the fingerprint to start",
                 btnSaveConfig: "Save Settings", tabDeliveries: "📦 Deliveries", tabExpenses: "⛽ Expenses", tabChart: "📊 Chart",
                 regDeliveryTitle: "Register Delivery", regDeliverySub: "Enter the delivery amount", placeholderMonto: "Amount ($)",
                 btnAddDelivery: "+ Add Delivery", btnEditDelivery: "Save Changes", btnCancelEdit: "Cancel Edit",
@@ -528,6 +546,38 @@
                 confirmDeleteDelivery: "Are you sure you want to delete this delivery record?", confirmDeleteExpense: "Are you sure you want to delete this expense record?",
                 splashSub: "Loading application...", msgDownloadInfo: "📁 The file has been saved in your Downloads folder.",
                 msgBioSuccess: "Fingerprint successfully set up.", msgBioError: "Error or cancelled during fingerprint setup.", msgBioUnauth: "Could not verify fingerprint."
+            },
+            pt: {
+                configTitle: "Configuração de Perfil", configSub: "Insira suas informações",
+                placeholderNombre: "Nome", placeholderApellido: "Sobrenome", placeholderCedula: "Documento de Identidade",
+                startWeekLabel: "A semana começa em:", optMon: "Segunda", optTue: "Terça", optWed: "Quarta", optThu: "Quinta", optFri: "Sexta", optSat: "Sábado", optSun: "Domingo",
+                securityLabel: "Segurança e Acesso:", btnEnableBio: "🔒 Ativar Bloqueio por Impressão", btnDisableBio: "🔓 Desativar Bloqueio",
+                authTitle: "Bem-vindo", authSub: "Toque na impressão digital para iniciar",
+                btnSaveConfig: "Salvar Configurações", tabDeliveries: "📦 Entregas", tabExpenses: "⛽ Despesas", tabChart: "📊 Gráfico",
+                regDeliveryTitle: "Registrar Entrega", regDeliverySub: "Insira o valor da entrega", placeholderMonto: "Valor ($)",
+                btnAddDelivery: "+ Adicionar Entrega", btnEditDelivery: "Salvar Alterações", btnCancelEdit: "Cancelar Edição",
+                todaySummary: "Resumo de Hoje", statDeliveries: "Entregas", statTotalToday: "Total Hoje",
+                weekSummary: "Resumo Semanal", statTotalWeek: "Total Semana", statDaysWorked: "Dias Trabalhados",
+                monthSummary: "Resumo Mensal", statTotalMonth: "Total Mês", yearSummary: "Resumo Anual", statTotalYear: "Total Ano",
+                btnPrint: "🖨️ Imprimir / Salvar PDF", btnAllHistory: "📋 Ver Todos os Movimentos", btnAllExpensesHistory: "📋 Ver Todas as Despesas",
+                btnExportExcel: "📊 Exportar para Excel", historyScreenTitle: "Histórico de Entregas", expensesHistoryScreenTitle: "Histórico de Despesas",
+                btnBack: "← Voltar", exportSub: "Digite o nome do arquivo:", btnCancel: "Cancelar", btnDownload: "Baixar", btnContinue: "Continuar",
+                modalExcelTitle: "Exportar para Excel", modalExcelDesc: "Pressione continuar para salvar seu arquivo na pasta de destino.",
+                btnSuffix: "Adicionar Sufixo", btnOverwrite: "Sobrescrever",
+                regExpenseTitle: "Registrar Despesa", regExpenseSub: "Selecione o tipo e insira o valor", optGas: "⛽ Gasolina", optFood: "🍔 Comida / Lanches",
+                btnAddExpense: "+ Adicionar Despesa", todayExpenses: "Despesas de Hoje", statGasToday: "Gasolina Hoje", statFoodToday: "Comida Hoje",
+                weekExpenses: "Resumo Semanal de Despesas", statGasWeek: "Gasolina Semana", statFoodWeek: "Comida Semana",
+                monthExpenses: "Resumo Mensal de Despesas", statGasMonth: "Gasolina Mês", statFoodMonth: "Comida Mês",
+                chartTitle: "Balanço Visual do Mês", chartSub: "Ganhos vs Gasolina e Comida", chartOrdersTitle: "Total de Pedidos",
+                statOrdersToday: "Hoje", statOrdersWeek: "Semana", statOrdersMonth: "Mês", btnEditProfile: "⚙️ Editar Perfil",
+                modalConfirmTitle: "Confirmação", btnAccept: "Aceitar", printListTitle: "Lista de Transações",
+                thDate: "Data", thTime: "Hora", thAmount: "Valor", msgInvalidAmount: "Insira um valor válido", msgInvalidExpense: "Insira um valor válido para despesa",
+                msgInvalidProfile: "Insira seu Nome e Documento", msgNoDataExport: "Sem dados suficientes para exportar.",
+                msgNoDeliveriesToday: "Nenhuma entrega hoje", msgNoExpensesToday: "Nenhuma despesa hoje",
+                msgNoDeliveriesHistory: "Nenhuma entrega registrada", msgNoExpensesHistory: "Nenhuma despesa registrada",
+                confirmDeleteDelivery: "Tem certeza que deseja excluir esta entrega?", confirmDeleteExpense: "Tem certeza que deseja excluir esta despesa?",
+                splashSub: "Carregando aplicativo...", msgDownloadInfo: "📁 O arquivo foi salvo na sua pasta de Downloads.",
+                msgBioSuccess: "Impressão digital configurada.", msgBioError: "Erro ao configurar impressão digital.", msgBioUnauth: "Não foi possível verificar a impressão."
             }
         };
 
@@ -1035,7 +1085,7 @@
             mostrarMensaje('deliveryExito', t('msgDownloadInfo'), false); cancelarExportar();
         }
 
-        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js?v=1.53').catch(() => {}); }
+        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js?v=1.54').catch(() => {}); }
     </script>
 </body>
 </html>
