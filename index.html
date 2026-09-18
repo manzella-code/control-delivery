@@ -9,8 +9,8 @@
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.49</title>
-    <link rel="manifest" href="manifest.json?v=1.49">
+    <title>Control Delivery v1.50</title>
+    <link rel="manifest" href="manifest.json?v=1.50">
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -235,7 +235,7 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.49</span>
+        <span>Versión 1.50</span>
         <div class="header-buttons">
             <!-- SELECTOR DE IDIOMA PERSONALIZADO -->
             <div class="custom-dropdown">
@@ -451,6 +451,25 @@
                     <canvas id="balanceChart"></canvas>
                 </div>
             </div>
+
+            <!-- NUEVA SECCIÓN DE TOTAL DE PEDIDOS EN EL GRÁFICO -->
+            <div class="card">
+                <h2 data-i18n="chartOrdersTitle">Total de Pedidos (Deliveries)</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px;">
+                    <div class="stat-box">
+                        <small data-i18n="statOrdersToday">Hoy</small>
+                        <strong id="graficoPedidosHoy" style="color: #10b981;">0</strong>
+                    </div>
+                    <div class="stat-box">
+                        <small data-i18n="statOrdersWeek">Semana</small>
+                        <strong id="graficoPedidosSemana" style="color: #3b82f6;">0</strong>
+                    </div>
+                    <div class="stat-box">
+                        <small data-i18n="statOrdersMonth">Mes</small>
+                        <strong id="graficoPedidosMes" style="color: #f59e0b;">0</strong>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <button class="btn-link" onclick="editarPerfil()" data-i18n="btnEditProfile">⚙️ Modificar Configuración de Perfil</button>
@@ -559,6 +578,10 @@
                 statFoodMonth: "Comida Mes",
                 chartTitle: "Balance Visual del Mes",
                 chartSub: "Ganancias vs Gasolina y Comidas",
+                chartOrdersTitle: "Total de Pedidos (Deliveries)",
+                statOrdersToday: "Hoy",
+                statOrdersWeek: "Semana",
+                statOrdersMonth: "Mes",
                 btnEditProfile: "⚙️ Modificar Configuración de Perfil",
                 modalConfirmTitle: "Confirmación",
                 btnAccept: "Aceptar",
@@ -634,6 +657,10 @@
                 statFoodMonth: "Food Month",
                 chartTitle: "Month's Visual Balance",
                 chartSub: "Earnings vs Gas & Food",
+                chartOrdersTitle: "Total Orders (Deliveries)",
+                statOrdersToday: "Today",
+                statOrdersWeek: "Week",
+                statOrdersMonth: "Month",
                 btnEditProfile: "⚙️ Edit Profile Settings",
                 modalConfirmTitle: "Confirmation",
                 btnAccept: "Accept",
@@ -709,6 +736,10 @@
                 statFoodMonth: "Comida Mês",
                 chartTitle: "Balanço Visual do Mês",
                 chartSub: "Ganhos vs Gasolina e Comida",
+                chartOrdersTitle: "Total de Pedidos",
+                statOrdersToday: "Hoje",
+                statOrdersWeek: "Semana",
+                statOrdersMonth: "Mês",
                 btnEditProfile: "⚙️ Editar Perfil",
                 modalConfirmTitle: "Confirmação",
                 btnAccept: "Aceitar",
@@ -784,6 +815,10 @@
                 statFoodMonth: "Nourriture Mois",
                 chartTitle: "Bilan Visuel du Mois",
                 chartSub: "Gains vs Essence et Nourriture",
+                chartOrdersTitle: "Total des Commandes",
+                statOrdersToday: "Aujourd'hui",
+                statOrdersWeek: "Semaine",
+                statOrdersMonth: "Mois",
                 btnEditProfile: "⚙️ Modifier le Profil",
                 modalConfirmTitle: "Confirmation",
                 btnAccept: "Accepter",
@@ -859,6 +894,10 @@
                 statFoodMonth: "Cibo Mese",
                 chartTitle: "Bilancio Visivo del Mese",
                 chartSub: "Guadagni vs Benzina e Cibo",
+                chartOrdersTitle: "Totale Ordini",
+                statOrdersToday: "Oggi",
+                statOrdersWeek: "Settimana",
+                statOrdersMonth: "Mese",
                 btnEditProfile: "⚙️ Modifica Profilo",
                 modalConfirmTitle: "Conferma",
                 btnAccept: "Accetta",
@@ -934,6 +973,10 @@
                 statFoodMonth: "Essen Monat",
                 chartTitle: "Visuelle Bilanz des Monats",
                 chartSub: "Verdienst vs. Benzin & Essen",
+                chartOrdersTitle: "Gesamte Bestellungen",
+                statOrdersToday: "Heute",
+                statOrdersWeek: "Woche",
+                statOrdersMonth: "Monat",
                 btnEditProfile: "⚙️ Profil bearbeiten",
                 modalConfirmTitle: "Bestätigung",
                 btnAccept: "Akzeptieren",
@@ -1009,6 +1052,10 @@
                 statFoodMonth: "本月食品",
                 chartTitle: "本月可视化平衡",
                 chartSub: "收入对比汽油与食品",
+                chartOrdersTitle: "总订单量",
+                statOrdersToday: "今天",
+                statOrdersWeek: "本周",
+                statOrdersMonth: "本月",
                 btnEditProfile: "⚙️ 修改资料设置",
                 modalConfirmTitle: "确认",
                 btnAccept: "接受",
@@ -1084,6 +1131,10 @@
                 statFoodMonth: "月間食事",
                 chartTitle: "今月のビジュアルバランス",
                 chartSub: "収益 vs ガソリン・食事",
+                chartOrdersTitle: "総注文数",
+                statOrdersToday: "今日",
+                statOrdersWeek: "今週",
+                statOrdersMonth: "今月",
                 btnEditProfile: "⚙️ プロフィール設定を変更",
                 modalConfirmTitle: "確認",
                 btnAccept: "承諾",
@@ -1571,7 +1622,17 @@
                 }
             });
 
-            balanceChart.data.labels = currentLang === 'es' ? ['Ganancias', 'Gasolina', 'Comidas/Snacks'] : ['Earnings', 'Gas', 'Food/Snacks'];
+            // Asignación dinámica de etiquetas con el monto incluido
+            const labelGanancias = currentLang === 'es' ? 'Ganancias' : 'Earnings';
+            const labelGasolina = currentLang === 'es' ? 'Gasolina' : 'Gas';
+            const labelComida = currentLang === 'es' ? 'Comidas/Snacks' : 'Food/Snacks';
+
+            balanceChart.data.labels = [
+                `${labelGanancias} ($${sumaMes.toFixed(2)})`,
+                `${labelGasolina} ($${gasMes.toFixed(2)})`,
+                `${labelComida} ($${comidaMes.toFixed(2)})`
+            ];
+
             balanceChart.data.datasets[0].data = [sumaMes, gasMes, comidaMes];
             balanceChart.update();
         }
@@ -1619,6 +1680,9 @@
             document.getElementById('cantHoy').innerText = entregasHoyIndex.length;
             const sumaHoy = entregasHoyIndex.reduce((acc, idx) => acc + datos[idx].monto, 0);
             document.getElementById('totalHoy').innerText = `$${sumaHoy.toFixed(2)}`;
+            
+            const lblGrafHoy = document.getElementById('graficoPedidosHoy');
+            if (lblGrafHoy) lblGrafHoy.innerText = entregasHoyIndex.length;
 
             const lista = document.getElementById('listaHoy');
             lista.innerHTML = '';
@@ -1707,6 +1771,9 @@
 
             document.getElementById('totalSemana').innerText = `$${entregasSemana.reduce((a, b) => a + b.monto, 0).toFixed(2)}`;
             document.getElementById('diasSemana').innerText = new Set(entregasSemana.map(d => d.fecha)).size;
+            
+            const lblGrafSem = document.getElementById('graficoPedidosSemana');
+            if (lblGrafSem) lblGrafSem.innerText = entregasSemana.length;
 
             // --- CÁLCULOS DINÁMICOS MENSUALES ---
             const currentYear = hoyObj.getFullYear();
@@ -1722,6 +1789,9 @@
 
             document.getElementById('totalMes').innerText = `$${entregasMes.reduce((a, b) => a + b.monto, 0).toFixed(2)}`;
             document.getElementById('diasMes').innerText = new Set(entregasMes.map(d => d.fecha)).size;
+            
+            const lblGrafMes = document.getElementById('graficoPedidosMes');
+            if (lblGrafMes) lblGrafMes.innerText = entregasMes.length;
 
             const desgloseSemanasEl = document.getElementById('desgloseSemanas');
             desgloseSemanasEl.innerHTML = '';
@@ -1921,7 +1991,7 @@
         }
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=1.49').catch(() => {});
+            navigator.serviceWorker.register('sw.js?v=1.50').catch(() => {});
         }
     </script>
 </body>
