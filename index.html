@@ -9,8 +9,8 @@
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.50</title>
-    <link rel="manifest" href="manifest.json?v=1.50">
+    <title>Control Delivery v1.51</title>
+    <link rel="manifest" href="manifest.json?v=1.51">
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -235,7 +235,7 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.50</span>
+        <span>Versión 1.51</span>
         <div class="header-buttons">
             <!-- SELECTOR DE IDIOMA PERSONALIZADO -->
             <div class="custom-dropdown">
@@ -908,7 +908,7 @@
                 msgInvalidProfile: "Inserisci Nome e ID",
                 msgNoDataExport: "Dati insufficienti.",
                 msgNoDeliveriesToday: "Nessuna consegna oggi",
-                msgNoExpensesToday: "Nessuna spesa oggi",
+                msgNoExpensesToday: "Nenhuma spesa oggi",
                 msgNoDeliveriesHistory: "Nessuna consegna registrata",
                 msgNoExpensesHistory: "Nessuna spesa registrata",
                 confirmDeleteDelivery: "Sei sicuro di voler eliminare?",
@@ -1622,17 +1622,8 @@
                 }
             });
 
-            // Asignación dinámica de etiquetas con el monto incluido
-            const labelGanancias = currentLang === 'es' ? 'Ganancias' : 'Earnings';
-            const labelGasolina = currentLang === 'es' ? 'Gasolina' : 'Gas';
-            const labelComida = currentLang === 'es' ? 'Comidas/Snacks' : 'Food/Snacks';
-
-            balanceChart.data.labels = [
-                `${labelGanancias} ($${sumaMes.toFixed(2)})`,
-                `${labelGasolina} ($${gasMes.toFixed(2)})`,
-                `${labelComida} ($${comidaMes.toFixed(2)})`
-            ];
-
+            // Restablecido a etiquetas limpias sin monto, versión 1.51
+            balanceChart.data.labels = currentLang === 'es' ? ['Ganancias', 'Gasolina', 'Comidas/Snacks'] : ['Earnings', 'Gas', 'Food/Snacks'];
             balanceChart.data.datasets[0].data = [sumaMes, gasMes, comidaMes];
             balanceChart.update();
         }
@@ -1991,7 +1982,7 @@
         }
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=1.50').catch(() => {});
+            navigator.serviceWorker.register('sw.js?v=1.51').catch(() => {});
         }
     </script>
 </body>
