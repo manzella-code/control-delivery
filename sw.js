@@ -1,4 +1,4 @@
-const CACHE_NAME = 'delivery-cache-v1.57';
+const CACHE_NAME = 'delivery-cache-v1.58';
 const assetsToCache = [
   '/',
   '/index.html',
