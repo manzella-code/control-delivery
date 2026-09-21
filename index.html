@@ -4,12 +4,12 @@
     <link rel="manifest" href="manifest.json">
     <script>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js?v=1.57');
+        navigator.serviceWorker.register('sw.js?v=1.58');
       }
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.57</title>
+    <title>Control Delivery v1.58</title>
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -19,6 +19,7 @@
         window.authUser = null;
         window.licenseValid = false;
         window.splashFinished = false;
+        window.userRole = 'usuario'; // Guardará si es admin o usuario
 
         window.updateMainUI = () => {
             if(!window.splashFinished || !window.authChecked) return;
@@ -65,7 +66,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+        // AGREGAMOS collection, getDocs, updateDoc PARA EL PANEL ADMIN
+        import { getFirestore, doc, getDoc, setDoc, collection, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBEd6vASra5aogel6-smzRg98wi8YvyXcU",
@@ -85,12 +87,7 @@
             const p = document.getElementById('loginPassword').value;
             if(!e || !p) { mostrarMensaje('loginAlerta', 'Ingresa correo y contraseña', true); return; }
             const btn = document.getElementById('btnLogin'); btn.innerText = "Cargando..."; btn.disabled = true;
-            try {
-                await signInWithEmailAndPassword(auth, e, p);
-            } catch(err) {
-                mostrarMensaje('loginAlerta', traducirErrorFirebase(err.code), true);
-                btn.innerText = "Iniciar Sesión"; btn.disabled = false;
-            }
+            try { await signInWithEmailAndPassword(auth, e, p); } catch(err) { mostrarMensaje('loginAlerta', traducirErrorFirebase(err.code), true); btn.innerText = "Iniciar Sesión"; btn.disabled = false; }
         };
 
         window.registrarFirebase = async () => {
@@ -98,12 +95,7 @@
             const p = document.getElementById('loginPassword').value;
             if(!e || !p) { mostrarMensaje('loginAlerta', 'Ingresa correo y contraseña', true); return; }
             const btn = document.getElementById('btnRegister'); btn.innerText = "Procesando..."; btn.disabled = true;
-            try {
-                await createUserWithEmailAndPassword(auth, e, p);
-            } catch(err) {
-                mostrarMensaje('loginAlerta', traducirErrorFirebase(err.code), true);
-                btn.innerText = "Crear Cuenta Nueva"; btn.disabled = false;
-            }
+            try { await createUserWithEmailAndPassword(auth, e, p); } catch(err) { mostrarMensaje('loginAlerta', traducirErrorFirebase(err.code), true); btn.innerText = "Crear Cuenta Nueva"; btn.disabled = false; }
         };
 
         window.logoutFirebase = async () => {
@@ -119,13 +111,13 @@
                     const userRef = doc(db, "usuarios", user.uid);
                     let docSnap = await getDoc(userRef);
                     if (!docSnap.exists()) {
-                        // OTORGAR 3 DÍAS DE PRUEBA GRATIS
                         const vVence = Date.now() + (3 * 24 * 60 * 60 * 1000);
                         await setDoc(userRef, { email: user.email, licenciaVence: vVence, rol: "usuario" });
                         window.licenseValid = true;
+                        window.userRole = "usuario";
                     } else {
                         const data = docSnap.data();
-                        // ADMINISTRADORES NUNCA VENCEN
+                        window.userRole = data.rol || 'usuario';
                         if (data.rol === "admin" || Date.now() < data.licenciaVence) {
                             window.licenseValid = true;
                         } else {
@@ -139,9 +131,64 @@
             } else {
                 window.authUser = null;
                 window.licenseValid = false;
+                window.userRole = 'usuario';
             }
             if(window.updateMainUI) window.updateMainUI();
         });
+
+        // ==========================================
+        // FUNCIONES DEL PANEL DE ADMINISTRADOR
+        // ==========================================
+        window.abrirAdminPanel = async () => {
+            if (window.userRole !== 'admin') return;
+            document.getElementById('adminScreen').style.display = 'block';
+            const lista = document.getElementById('listaUsuariosAdmin');
+            lista.innerHTML = '<div style="text-align:center; padding:20px;">Cargando usuarios...</div>';
+            
+            try {
+                const querySnapshot = await getDocs(collection(db, "usuarios"));
+                lista.innerHTML = '';
+                querySnapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    const fechaObj = new Date(data.licenciaVence);
+                    const fechaVence = fechaObj.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    const isVencido = Date.now() > data.licenciaVence && data.rol !== 'admin';
+                    const colorEstado = data.rol === 'admin' ? '#8b5cf6' : (isVencido ? '#ef4444' : '#10b981');
+                    const textoEstado = data.rol === 'admin' ? 'ILIMITADO (Admin)' : (isVencido ? 'VENCIDA' : 'ACTIVA');
+
+                    lista.innerHTML += `
+                    <li style="flex-direction:column; align-items:flex-start; background: var(--card-bg, #fff); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border-color, #e2e8f0);">
+                        <strong style="font-size: 1.1rem;">${data.email}</strong>
+                        <span style="font-size: 0.85rem; color: #64748b; margin-bottom: 5px;">Vence: ${fechaVence}</span>
+                        <span style="font-size: 0.8rem; font-weight: bold; color: ${colorEstado}; padding: 3px 8px; background: ${colorEstado}20; border-radius: 4px; margin-bottom: 10px;">${textoEstado}</span>
+                        
+                        ${data.rol !== 'admin' ? `<button onclick="renovarLicenciaFirebase(event, '${docSnap.id}')" style="padding: 8px; font-size: 0.9rem; background: #3b82f6;">+ Otorgar 1 Año (365 días)</button>` : '<span style="font-size: 0.8rem; color:#8b5cf6;">Cuenta Administrativa Intocable</span>'}
+                    </li>`;
+                });
+            } catch (e) {
+                console.error(e);
+                lista.innerHTML = '<div style="color:red; text-align:center;">Error al cargar la base de datos. Verifica las reglas de Firestore.</div>';
+            }
+        };
+
+        window.cerrarAdminPanel = () => { document.getElementById('adminScreen').style.display = 'none'; };
+
+        window.renovarLicenciaFirebase = async (event, uid) => {
+            const btn = event.target;
+            btn.innerText = "Procesando...";
+            btn.disabled = true;
+            try {
+                // 365 días * 24 horas * 60 min * 60 seg * 1000 ms
+                const nuevosMilisegundos = Date.now() + (365 * 24 * 60 * 60 * 1000);
+                await updateDoc(doc(db, "usuarios", uid), { licenciaVence: nuevosMilisegundos });
+                // Recargar lista
+                window.abrirAdminPanel();
+            } catch (e) {
+                console.error("Error renovando:", e);
+                btn.innerText = "Error. Intentar de nuevo.";
+                btn.disabled = false;
+            }
+        };
     </script>
 
     <style>
@@ -199,7 +246,7 @@
         .modal-card { background: white; padding: 20px; border-radius: 12px; width: 100%; max-width: 320px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .modal-buttons { display: flex; gap: 10px; margin-top: 15px; }
 
-        #historialTotalScreen, #historialGastosScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f4f6f8; z-index: 99999; padding: 15px; overflow-y: auto; }
+        #historialTotalScreen, #historialGastosScreen, #adminScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f4f6f8; z-index: 99999; padding: 15px; overflow-y: auto; }
 
         /* PANTALLAS DE FLUJO - LOGIN / EXPIRADA / HUELLA */
         #loginScreen, #expiredScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 99998; flex-direction: column; justify-content: center; align-items: center; padding: 20px; text-align: center; }
@@ -219,7 +266,7 @@
         [data-theme="dark"] { --bg-color: #121212 !important; --text-color: #e0e0e0 !important; --card-bg: #1e1e1e !important; --border-color: #333333 !important; }
         [data-theme="dark"] body, [data-theme="dark"] #authScreen, [data-theme="dark"] #loginScreen, [data-theme="dark"] #expiredScreen { background: var(--bg-color); color: var(--text-color); }
         [data-theme="dark"] #splashScreen { background: #121212; color: #e0e0e0; }
-        [data-theme="dark"] #historialTotalScreen, [data-theme="dark"] #historialGastosScreen { background: var(--bg-color); color: var(--text-color); }
+        [data-theme="dark"] #historialTotalScreen, [data-theme="dark"] #historialGastosScreen, [data-theme="dark"] #adminScreen { background: var(--bg-color); color: var(--text-color); }
         [data-theme="dark"] .card, [data-theme="dark"] .modal-card { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); }
         [data-theme="dark"] h2 { color: #f1f5f9; }
         [data-theme="dark"] input, [data-theme="dark"] select { background: #2d2d2d; color: #e0e0e0; border-color: #444; }
@@ -322,6 +369,24 @@
         <p style="margin-top: 25px; color: #10b981; font-weight: bold; font-size: 1rem;" data-i18n="authSub">Toca la huella para iniciar</p>
     </div>
 
+    <!-- 5. PANEL DE ADMINISTRADOR OCULTO -->
+    <div id="adminScreen">
+        <div style="max-width: 500px; margin: 0 auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 style="color: #8b5cf6;">👑 Admin Panel</h2>
+                <button class="btn-secondary" style="width: auto; padding: 8px 12px; margin: 0;" onclick="cerrarAdminPanel()" data-i18n="btnBack">← Volver</button>
+            </div>
+            
+            <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 15px;">
+                Control total de usuarios registrados. Al presionar "Otorgar 1 Año", se sumarán 365 días a partir de hoy a la cuenta del cliente.
+            </p>
+
+            <ul id="listaUsuariosAdmin" style="max-height: 75vh; overflow-y: auto; list-style: none;">
+                <!-- Aquí se inyectan los usuarios desde Firebase -->
+            </ul>
+        </div>
+    </div>
+
     <!-- HISTORIALES -->
     <div id="historialTotalScreen">
         <div style="max-width: 500px; margin: 0 auto;">
@@ -348,7 +413,7 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.57</span>
+        <span>Versión 1.58</span>
         <div class="header-buttons">
             <div class="custom-dropdown">
                 <button id="langDropdownBtn" class="custom-dropdown-btn" onclick="toggleLangMenu()">Español ▾</button>
@@ -588,6 +653,10 @@
         </div>
 
         <button class="btn-link" onclick="editarPerfil()" data-i18n="btnEditProfile">⚙️ Modificar Configuración de Perfil</button>
+        
+        <!-- BOTÓN OCULTO DEL PANEL ADMIN -->
+        <button id="btnAdminMenu" class="btn-secondary" style="display: none; background: #8b5cf6; margin-top:15px; color:white; margin-bottom: 15px;" onclick="abrirAdminPanel()">👑 Abrir Panel de Administrador</button>
+
     </div>
 
     <!-- MODALES -->
@@ -757,6 +826,12 @@
             document.getElementById('authScreen').style.display = 'none';
             document.getElementById('perfilCard').style.display = 'none';
             document.getElementById('mainApp').style.display = 'block';
+            
+            // MOSTRAR BOTÓN DE ADMIN SI EL USUARIO TIENE EL ROL
+            if(window.userRole === 'admin') {
+                document.getElementById('btnAdminMenu').style.display = 'block';
+            }
+
             inicializarGrafico(); actualizarInterfaz();
         }
 
@@ -836,7 +911,7 @@
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-                    scales: { x: { ticks: { display: true, color: textColor, font: { weight: 'bold', size: 11 } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: textColor } } }
+                    scales: { x: { ticks: { display: true, color: textColor, font: { weight: 'bold', size: 11 } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: renderer => renderer } } }
                 }
             });
         }
