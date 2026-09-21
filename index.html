@@ -9,7 +9,7 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.59.4</title>
+    <title>Control Delivery v1.59.5</title>
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -367,8 +367,20 @@
             document.getElementById('adminUserDetailScreen').style.display = 'none';
         };
 
+        // DESCARGAR RESPALDO CON NOMBRE Y CORREO DEL USUARIO
         window.descargarRespaldoUsuario = async (uidCliente, emailCliente) => {
             try {
+                let nombreCompleto = "";
+                try {
+                    const userDocSnap = await getDoc(doc(db, "usuarios", uidCliente));
+                    if (userDocSnap.exists()) {
+                        const uData = userDocSnap.data();
+                        if (uData.nombre) {
+                            nombreCompleto = `${uData.nombre}_${uData.apellido || ''}`.trim().replace(/\s+/g, '_');
+                        }
+                    }
+                } catch(e) {}
+
                 const transSnap = await getDocs(collection(db, "usuarios", uidCliente, "transacciones"));
                 if (transSnap.empty) {
                     alert(`El usuario ${emailCliente} no tiene transacciones registradas.`);
@@ -387,7 +399,11 @@
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement("a");
                 link.setAttribute("href", url);
-                link.setAttribute("download", `respaldo_${emailCliente.replace(/@/, '_at_')}.csv`);
+                
+                const idIdentificador = nombreCompleto ? `${nombreCompleto}_${emailCliente}` : emailCliente;
+                const nombreArchivoLim = idIdentificador.replace(/[@\.]/g, '_');
+                link.setAttribute("download", `respaldo_${nombreArchivoLim}.csv`);
+                
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -650,7 +666,7 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.59.4</span>
+        <span>Versión 1.59.5</span>
         <div class="header-buttons">
             <div class="custom-dropdown">
                 <button id="langDropdownBtn" class="custom-dropdown-btn" onclick="toggleLangMenu()">Español ▾</button>
