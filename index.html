@@ -130,14 +130,43 @@
                         }
                     }
 
-                    // CARGAR TRANSACCIONES DESDE FIRESTORE
-                    if (window.licenseValid) {
-                        const transQuery = await getDocs(collection(db, "usuarios", user.uid, "transacciones"));
-                        window.datos = [];
-                        transQuery.forEach((tDoc) => {
-                            window.datos.push({ firestoreId: tDoc.id, ...tDoc.data() });
-                        });
+                    // CARGAR TRANSACCIONES Y MIGRAR DESDE LOCALSTORAGE SI EXISTEN DATOS ANTIGUOS
+                    const transRef = collection(db, "usuarios", user.uid, "transacciones");
+                    let transQuery = await getDocs(transRef);
+
+                    if (transQuery.empty) {
+                        const datosLocalesStr = localStorage.getItem('datos');
+                        if (datosLocalesStr) {
+                            try {
+                                const datosLocales = JSON.parse(datosLocalesStr);
+                                if (Array.isArray(datosLocales) && datosLocales.length > 0) {
+                                    for (let item of datosLocales) {
+                                        delete item.firestoreId;
+                                        if (item.monto > 0) {
+                                            await addDoc(transRef, {
+                                                tipo: item.tipo || 'delivery',
+                                                tipoGasto: item.tipoGasto || '',
+                                                monto: item.monto,
+                                                fecha: item.fecha || '',
+                                                fechaTexto: item.fechaTexto || '',
+                                                hora: item.hora || '',
+                                                timestamp: item.timestamp || Date.now()
+                                            });
+                                        }
+                                    }
+                                    localStorage.removeItem('datos');
+                                    transQuery = await getDocs(transRef); // Recargar ya migrados
+                                }
+                            } catch (migErr) {
+                                console.error("Error en migración automática:", migErr);
+                            }
+                        }
                     }
+
+                    window.datos = [];
+                    transQuery.forEach((tDoc) => {
+                        window.datos.push({ firestoreId: tDoc.id, ...tDoc.data() });
+                    });
 
                 } catch(e) {
                     console.error("DB Error:", e);
