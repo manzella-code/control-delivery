@@ -9,7 +9,7 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.59</title>
+    <title>Control Delivery v1.59.1</title>
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -130,36 +130,60 @@
                         }
                     }
 
-                    // CARGAR TRANSACCIONES Y MIGRAR DESDE LOCALSTORAGE SI EXISTEN DATOS ANTIGUOS
+                    // CARGAR TRANSACCIONES Y MIGRACIÓN BLINDADA DESDE LOCALSTORAGE
                     const transRef = collection(db, "usuarios", user.uid, "transacciones");
                     let transQuery = await getDocs(transRef);
 
                     if (transQuery.empty) {
-                        const datosLocalesStr = localStorage.getItem('datos');
-                        if (datosLocalesStr) {
-                            try {
-                                const datosLocales = JSON.parse(datosLocalesStr);
-                                if (Array.isArray(datosLocales) && datosLocales.length > 0) {
-                                    for (let item of datosLocales) {
-                                        delete item.firestoreId;
-                                        if (item.monto > 0) {
-                                            await addDoc(transRef, {
-                                                tipo: item.tipo || 'delivery',
-                                                tipoGasto: item.tipoGasto || '',
-                                                monto: item.monto,
-                                                fecha: item.fecha || '',
-                                                fechaTexto: item.fechaTexto || '',
-                                                hora: item.hora || '',
-                                                timestamp: item.timestamp || Date.now()
-                                            });
-                                        }
+                        let datosLocales = null;
+                        
+                        // Buscar en todas las posibles claves anteriores de localStorage
+                        const posiblesClaves = ['datos', 'delivery_datos', 'control_delivery', 'registros', 'historial'];
+                        for (let clave of posiblesClaves) {
+                            const val = localStorage.getItem(clave);
+                            if (val) {
+                                try {
+                                    const parsed = JSON.parse(val);
+                                    if (Array.isArray(parsed) && parsed.length > 0) {
+                                        datosLocales = parsed;
+                                        break;
                                     }
-                                    localStorage.removeItem('datos');
-                                    transQuery = await getDocs(transRef); // Recargar ya migrados
-                                }
-                            } catch (migErr) {
-                                console.error("Error en migración automática:", migErr);
+                                } catch(e) {}
                             }
+                        }
+
+                        // Si aun así no encuentra, buscar cualquier elemento en localStorage que parezca un array de transacciones
+                        if (!datosLocales) {
+                            for (let i = 0; i < localStorage.length; i++) {
+                                const key = localStorage.key(i);
+                                const val = localStorage.getItem(key);
+                                try {
+                                    const parsed = JSON.parse(val);
+                                    if (Array.isArray(parsed) && parsed.length > 0 && (parsed[0].monto !== undefined || parsed[0].tipo !== undefined)) {
+                                        datosLocales = parsed;
+                                        break;
+                                    }
+                                } catch(e) {}
+                            }
+                        }
+
+                        // Si encontramos datos locales, subirlos a Firestore
+                        if (datosLocales && datosLocales.length > 0) {
+                            for (let item of datosLocales) {
+                                delete item.firestoreId;
+                                if (item.monto > 0) {
+                                    await addDoc(transRef, {
+                                        tipo: item.tipo || 'delivery',
+                                        tipoGasto: item.tipoGasto || '',
+                                        monto: item.monto,
+                                        fecha: item.fecha || '',
+                                        fechaTexto: item.fechaTexto || '',
+                                        hora: item.hora || '',
+                                        timestamp: item.timestamp || Date.now()
+                                    });
+                                }
+                            }
+                            transQuery = await getDocs(transRef); // Recargar ya migrados
                         }
                     }
 
@@ -481,7 +505,7 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.59</span>
+        <span>Versión 1.59.1</span>
         <div class="header-buttons">
             <div class="custom-dropdown">
                 <button id="langDropdownBtn" class="custom-dropdown-btn" onclick="toggleLangMenu()">Español ▾</button>
