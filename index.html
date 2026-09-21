@@ -4,12 +4,12 @@
     <link rel="manifest" href="manifest.json">
     <script>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js?v=1.58');
+        navigator.serviceWorker.register('sw.js?v=1.59');
       }
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.58</title>
+    <title>Control Delivery v1.59</title>
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -19,7 +19,9 @@
         window.authUser = null;
         window.licenseValid = false;
         window.splashFinished = false;
-        window.userRole = 'usuario'; // Guardará si es admin o usuario
+        window.userRole = 'usuario';
+        window.datos = [];
+        window.perfil = null;
 
         window.updateMainUI = () => {
             if(!window.splashFinished || !window.authChecked) return;
@@ -66,8 +68,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-        // AGREGAMOS collection, getDocs, updateDoc PARA EL PANEL ADMIN
-        import { getFirestore, doc, getDoc, setDoc, collection, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, getDocs, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBEd6vASra5aogel6-smzRg98wi8YvyXcU",
@@ -81,6 +82,8 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+
+        window.dbInstance = db; 
 
         window.loginFirebase = async () => {
             const e = document.getElementById('loginEmail').value;
@@ -112,18 +115,30 @@
                     let docSnap = await getDoc(userRef);
                     if (!docSnap.exists()) {
                         const vVence = Date.now() + (3 * 24 * 60 * 60 * 1000);
-                        await setDoc(userRef, { email: user.email, licenciaVence: vVence, rol: "usuario" });
+                        await setDoc(userRef, { email: user.email, licenciaVence: vVence, rol: "usuario", nombre: "", apellido: "", cedula: "", inicioSemana: 1 });
                         window.licenseValid = true;
                         window.userRole = "usuario";
+                        window.perfil = { nombre: "", apellido: "", cedula: "", inicioSemana: 1 };
                     } else {
                         const data = docSnap.data();
                         window.userRole = data.rol || 'usuario';
+                        window.perfil = { nombre: data.nombre || "", apellido: data.apellido || "", cedula: data.cedula || "", inicioSemana: data.inicioSemana ?? 1 };
                         if (data.rol === "admin" || Date.now() < data.licenciaVence) {
                             window.licenseValid = true;
                         } else {
                             window.licenseValid = false;
                         }
                     }
+
+                    // CARGAR TRANSACCIONES DESDE FIRESTORE
+                    if (window.licenseValid) {
+                        const transQuery = await getDocs(collection(db, "usuarios", user.uid, "transacciones"));
+                        window.datos = [];
+                        transQuery.forEach((tDoc) => {
+                            window.datos.push({ firestoreId: tDoc.id, ...tDoc.data() });
+                        });
+                    }
+
                 } catch(e) {
                     console.error("DB Error:", e);
                     window.licenseValid = false;
@@ -132,13 +147,52 @@
                 window.authUser = null;
                 window.licenseValid = false;
                 window.userRole = 'usuario';
+                window.datos = [];
+                window.perfil = null;
             }
             if(window.updateMainUI) window.updateMainUI();
         });
 
-        // ==========================================
-        // FUNCIONES DEL PANEL DE ADMINISTRADOR
-        // ==========================================
+        // FUNCIONES CLOUD DE DATOS
+        window.cloudGuardarTransaccion = async (nuevoRegistro) => {
+            if(!window.authUser) return;
+            try {
+                const docRef = await addDoc(collection(db, "usuarios", window.authUser.uid, "transacciones"), nuevoRegistro);
+                nuevoRegistro.firestoreId = docRef.id;
+                window.datos.push(nuevoRegistro);
+                actualizarInterfaz();
+            } catch(e) { console.error("Error guardando en nube:", e); }
+        };
+
+        window.cloudActualizarTransaccion = async (firestoreId, cambios) => {
+            if(!window.authUser || !firestoreId) return;
+            try {
+                await updateDoc(doc(db, "usuarios", window.authUser.uid, "transacciones", firestoreId), cambios);
+                const item = window.datos.find(d => d.firestoreId === firestoreId);
+                if(item) Object.assign(item, cambios);
+                actualizarInterfaz();
+            } catch(e) { console.error("Error actualizando en nube:", e); }
+        };
+
+        window.cloudEliminarTransaccion = async (firestoreId) => {
+            if(!window.authUser || !firestoreId) return;
+            try {
+                await deleteDoc(doc(db, "usuarios", window.authUser.uid, "transacciones", firestoreId));
+                window.datos = window.datos.filter(d => d.firestoreId !== firestoreId);
+                actualizarInterfaz();
+            } catch(e) { console.error("Error eliminando en nube:", e); }
+        };
+
+        window.cloudGuardarPerfilCloud = async (nuevoPerfil) => {
+            if(!window.authUser) return;
+            try {
+                await updateDoc(doc(db, "usuarios", window.authUser.uid), nuevoPerfil);
+                window.perfil = nuevoPerfil;
+                window.location.reload();
+            } catch(e) { console.error("Error guardando perfil:", e); }
+        };
+
+        // ADMIN PANEL
         window.abrirAdminPanel = async () => {
             if (window.userRole !== 'admin') return;
             document.getElementById('adminScreen').style.display = 'block';
@@ -165,29 +219,18 @@
                         ${data.rol !== 'admin' ? `<button onclick="renovarLicenciaFirebase(event, '${docSnap.id}')" style="padding: 8px; font-size: 0.9rem; background: #3b82f6;">+ Otorgar 1 Año (365 días)</button>` : '<span style="font-size: 0.8rem; color:#8b5cf6;">Cuenta Administrativa Intocable</span>'}
                     </li>`;
                 });
-            } catch (e) {
-                console.error(e);
-                lista.innerHTML = '<div style="color:red; text-align:center;">Error al cargar la base de datos. Verifica las reglas de Firestore.</div>';
-            }
+            } catch (e) { lista.innerHTML = '<div style="color:red; text-align:center;">Error al cargar la base de datos.</div>'; }
         };
 
         window.cerrarAdminPanel = () => { document.getElementById('adminScreen').style.display = 'none'; };
 
         window.renovarLicenciaFirebase = async (event, uid) => {
-            const btn = event.target;
-            btn.innerText = "Procesando...";
-            btn.disabled = true;
+            const btn = event.target; btn.innerText = "Procesando..."; btn.disabled = true;
             try {
-                // 365 días * 24 horas * 60 min * 60 seg * 1000 ms
                 const nuevosMilisegundos = Date.now() + (365 * 24 * 60 * 60 * 1000);
                 await updateDoc(doc(db, "usuarios", uid), { licenciaVence: nuevosMilisegundos });
-                // Recargar lista
                 window.abrirAdminPanel();
-            } catch (e) {
-                console.error("Error renovando:", e);
-                btn.innerText = "Error. Intentar de nuevo.";
-                btn.disabled = false;
-            }
+            } catch (e) { btn.innerText = "Error. Intentar de nuevo."; btn.disabled = false; }
         };
     </script>
 
@@ -248,7 +291,6 @@
 
         #historialTotalScreen, #historialGastosScreen, #adminScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f4f6f8; z-index: 99999; padding: 15px; overflow-y: auto; }
 
-        /* PANTALLAS DE FLUJO - LOGIN / EXPIRADA / HUELLA */
         #loginScreen, #expiredScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 99998; flex-direction: column; justify-content: center; align-items: center; padding: 20px; text-align: center; }
         #authScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 99997; flex-direction: column; justify-content: center; align-items: center; }
         
@@ -328,7 +370,6 @@
         
         <input type="email" id="loginEmail" placeholder="Correo electrónico" style="max-width: 320px;" data-i18n-ph="loginEmailPh">
         
-        <!-- CONTENEDOR DE CONTRASEÑA CON OJO -->
         <div style="position: relative; width: 100%; max-width: 320px; margin-bottom: 15px;">
             <input type="password" id="loginPassword" placeholder="Contraseña" style="width: 100%; margin-bottom: 0; padding-right: 40px;" data-i18n-ph="loginPassPh">
             <span onclick="togglePassword()" id="ojoIcon" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 1.2rem; cursor: pointer; user-select: none;">👁️</span>
@@ -381,9 +422,7 @@
                 Control total de usuarios registrados. Al presionar "Otorgar 1 Año", se sumarán 365 días a partir de hoy a la cuenta del cliente.
             </p>
 
-            <ul id="listaUsuariosAdmin" style="max-height: 75vh; overflow-y: auto; list-style: none;">
-                <!-- Aquí se inyectan los usuarios desde Firebase -->
-            </ul>
+            <ul id="listaUsuariosAdmin" style="max-height: 75vh; overflow-y: auto; list-style: none;"></ul>
         </div>
     </div>
 
@@ -413,7 +452,7 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.58</span>
+        <span>Versión 1.59</span>
         <div class="header-buttons">
             <div class="custom-dropdown">
                 <button id="langDropdownBtn" class="custom-dropdown-btn" onclick="toggleLangMenu()">Español ▾</button>
@@ -653,10 +692,7 @@
         </div>
 
         <button class="btn-link" onclick="editarPerfil()" data-i18n="btnEditProfile">⚙️ Modificar Configuración de Perfil</button>
-        
-        <!-- BOTÓN OCULTO DEL PANEL ADMIN -->
         <button id="btnAdminMenu" class="btn-secondary" style="display: none; background: #8b5cf6; margin-top:15px; color:white; margin-bottom: 15px;" onclick="abrirAdminPanel()">👑 Abrir Panel de Administrador</button>
-
     </div>
 
     <!-- MODALES -->
@@ -742,11 +778,8 @@
         function cambiarIdioma(lang) {
             currentLang = lang; localStorage.setItem('appLang', currentLang);
             document.getElementById('langDropdownMenu').style.display = 'none';
-            applyLanguage(); if(perfil) actualizarInterfaz();
+            applyLanguage(); if(window.perfil) actualizarInterfaz();
         }
-
-        let datos = []; try { datos = JSON.parse(localStorage.getItem('deliveryData')) || []; } catch(e) {}
-        let perfil = null; try { perfil = JSON.parse(localStorage.getItem('deliveryProfile')) || null; } catch(e) {}
 
         let editandoIndex = null; let editandoGastoIndex = null; let balanceChart = null;
         let accionPendienteConfirmacion = null; let archivoPendienteExportar = '';
@@ -778,7 +811,7 @@
                 const userId = window.crypto.getRandomValues(new Uint8Array(16));
                 const pubKey = {
                     challenge: challenge, rp: { name: "Control Delivery", id: host },
-                    user: { id: userId, name: perfil.nombre, displayName: perfil.nombre },
+                    user: { id: userId, name: window.perfil.nombre, displayName: window.perfil.nombre },
                     pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
                     authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
                     timeout: 60000, attestation: "none"
@@ -808,7 +841,7 @@
         }
 
         function verificarPerfil() {
-            if (!perfil || !perfil.nombre || !perfil.cedula) {
+            if (!window.perfil || !window.perfil.nombre || !window.perfil.cedula) {
                 document.getElementById('perfilCard').style.display = 'block';
                 document.getElementById('mainApp').style.display = 'none';
                 document.getElementById('authScreen').style.display = 'none';
@@ -827,7 +860,6 @@
             document.getElementById('perfilCard').style.display = 'none';
             document.getElementById('mainApp').style.display = 'block';
             
-            // MOSTRAR BOTÓN DE ADMIN SI EL USUARIO TIENE EL ROL
             if(window.userRole === 'admin') {
                 document.getElementById('btnAdminMenu').style.display = 'block';
             }
@@ -839,7 +871,7 @@
         function cerrarHistorialTotal() { document.getElementById('historialTotalScreen').style.display = 'none'; }
         function renderizarHistorialTotal() {
             const listaEl = document.getElementById('listaHistorialTotal'); listaEl.innerHTML = '';
-            const deliveriesValidos = datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
+            const deliveriesValidos = window.datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
             if (deliveriesValidos.length === 0) { listaEl.innerHTML = `<div class="empty-msg">${t('msgNoDeliveriesHistory')}</div>`; return; }
             [...deliveriesValidos].reverse().forEach(d => {
                 const dateLbl = currentLang === 'es' ? 'Fecha' : 'Date'; const timeLbl = currentLang === 'es' ? 'Hora' : 'Time';
@@ -851,7 +883,7 @@
         function cerrarHistorialGastos() { document.getElementById('historialGastosScreen').style.display = 'none'; }
         function renderizarHistorialGastos() {
             const listaEl = document.getElementById('listaHistorialGastos'); listaEl.innerHTML = '';
-            const gastosValidos = datos.filter(d => d.tipo === 'gasto' && d.monto > 0);
+            const gastosValidos = window.datos.filter(d => d.tipo === 'gasto' && d.monto > 0);
             if (gastosValidos.length === 0) { listaEl.innerHTML = `<div class="empty-msg">${t('msgNoExpensesHistory')}</div>`; return; }
             [...gastosValidos].reverse().forEach(d => {
                 let etiqueta = d.tipoGasto === 'gasolina' ? (currentLang === 'es' ? '⛽ Gasolina' : '⛽ Gas') : (currentLang === 'es' ? '🍔 Comida' : '🍔 Food');
@@ -911,7 +943,7 @@
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-                    scales: { x: { ticks: { display: true, color: textColor, font: { weight: 'bold', size: 11 } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: renderer => renderer } } }
+                    scales: { x: { ticks: { display: true, color: textColor, font: { weight: 'bold', size: 11 } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: textColor } } }
                 }
             });
         }
@@ -922,17 +954,16 @@
             const doc = document.getElementById('perfilCedula').value.trim();
             const inicio = document.getElementById('perfilInicioSemana').value;
             if (!nom || !doc) { mostrarMensaje('perfilAlerta', t('msgInvalidProfile'), true); return; }
-            perfil = { nombre: nom, apellido: ape, cedula: doc, inicioSemana: parseInt(inicio) };
-            try { localStorage.setItem('deliveryProfile', JSON.stringify(perfil)); } catch (error) {}
-            window.location.reload();
+            const nuevoPerfil = { nombre: nom, apellido: ape, cedula: doc, inicioSemana: parseInt(inicio) };
+            cloudGuardarPerfilCloud(nuevoPerfil);
         }
 
         function editarPerfil() {
-            if (perfil) {
-                document.getElementById('perfilNombre').value = perfil.nombre || '';
-                document.getElementById('perfilApellido').value = perfil.apellido || '';
-                document.getElementById('perfilCedula').value = perfil.cedula || '';
-                document.getElementById('perfilInicioSemana').value = perfil.inicioSemana ?? 1;
+            if (window.perfil) {
+                document.getElementById('perfilNombre').value = window.perfil.nombre || '';
+                document.getElementById('perfilApellido').value = window.perfil.apellido || '';
+                document.getElementById('perfilCedula').value = window.perfil.cedula || '';
+                document.getElementById('perfilInicioSemana').value = window.perfil.inicioSemana ?? 1;
                 const bioEnabled = localStorage.getItem('bioEnabled') === 'true';
                 document.getElementById('btnActivarHuella').style.display = bioEnabled ? 'none' : 'block';
                 document.getElementById('btnDesactivarHuella').style.display = bioEnabled ? 'block' : 'none';
@@ -948,18 +979,21 @@
         function guardarEntrega() {
             const input = document.getElementById('monto'); const monto = parseFloat(input.value);
             if (!monto || monto <= 0) { mostrarMensaje('deliveryAlerta', t('msgInvalidAmount')); return; }
-            if (editandoIndex !== null) { datos[editandoIndex].monto = monto; cancelarEdicion(); } 
-            else {
+            if (editandoIndex !== null) {
+                const item = window.datos[editandoIndex];
+                cloudActualizarTransaccion(item.firestoreId, { monto: monto });
+                cancelarEdicion();
+            } else {
                 const ahora = new Date();
-                datos.push({ id: Date.now(), tipo: 'delivery', monto, fecha: formatearFechaISO(ahora), fechaTexto: formatDDMMYYYY(ahora), hora: ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
+                const nuevoItem = { tipo: 'delivery', monto, fecha: formatearFechaISO(ahora), fechaTexto: formatDDMMYYYY(ahora), hora: ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), timestamp: Date.now() };
+                cloudGuardarTransaccion(nuevoItem);
                 playCoinSound();
             }
-            try { localStorage.setItem('deliveryData', JSON.stringify(datos)); } catch(e) {}
-            input.value = ''; actualizarInterfaz();
+            input.value = '';
         }
 
         function editarEntrega(index) {
-            editandoIndex = index; document.getElementById('monto').value = datos[index].monto;
+            editandoIndex = index; document.getElementById('monto').value = window.datos[index].monto;
             document.getElementById('formTitle').innerText = currentLang === 'es' ? 'Editar Entrega' : 'Edit Delivery';
             document.getElementById('btnGuardar').innerText = t('btnEditDelivery'); document.getElementById('btnCancelar').style.display = 'block';
             cambiarPestana('deliveries'); window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -973,25 +1007,29 @@
 
         function eliminarEntrega(index) {
             abrirCustomConfirm(t('confirmDeleteDelivery'), () => {
-                if (editandoIndex === index) cancelarEdicion(); datos.splice(index, 1);
-                try { localStorage.setItem('deliveryData', JSON.stringify(datos)); } catch(e) {} actualizarInterfaz();
+                const item = window.datos[index];
+                if (editandoIndex === index) cancelarEdicion();
+                cloudEliminarTransaccion(item.firestoreId);
             });
         }
 
         function guardarGasto() {
             const tipoGasto = document.getElementById('tipoGasto').value; const input = document.getElementById('montoGasto'); const monto = parseFloat(input.value);
             if (!monto || monto <= 0) { mostrarMensaje('gastoAlerta', t('msgInvalidExpense')); return; }
-            if (editandoGastoIndex !== null) { datos[editandoGastoIndex].monto = monto; datos[editandoGastoIndex].tipoGasto = tipoGasto; cancelarEdicionGasto(); } 
-            else {
+            if (editandoGastoIndex !== null) {
+                const item = window.datos[editandoGastoIndex];
+                cloudActualizarTransaccion(item.firestoreId, { monto: monto, tipoGasto: tipoGasto });
+                cancelarEdicionGasto();
+            } else {
                 const ahora = new Date();
-                datos.push({ id: Date.now(), tipo: 'gasto', tipoGasto: tipoGasto, monto, fecha: formatearFechaISO(ahora), fechaTexto: formatDDMMYYYY(ahora), hora: ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
+                const nuevoItem = { tipo: 'gasto', tipoGasto: tipoGasto, monto, fecha: formatearFechaISO(ahora), fechaTexto: formatDDMMYYYY(ahora), hora: ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), timestamp: Date.now() };
+                cloudGuardarTransaccion(nuevoItem);
             }
-            try { localStorage.setItem('deliveryData', JSON.stringify(datos)); } catch(e) {}
-            input.value = ''; actualizarInterfaz();
+            input.value = '';
         }
 
         function editarGasto(index) {
-            editandoGastoIndex = index; document.getElementById('tipoGasto').value = datos[index].tipoGasto || 'gasolina'; document.getElementById('montoGasto').value = datos[index].monto;
+            editandoGastoIndex = index; document.getElementById('tipoGasto').value = window.datos[index].tipoGasto || 'gasolina'; document.getElementById('montoGasto').value = window.datos[index].monto;
             document.getElementById('formGastoTitle').innerText = currentLang === 'es' ? 'Editar Gasto' : 'Edit Expense';
             document.getElementById('btnGuardarGasto').innerText = t('btnEditDelivery'); document.getElementById('btnCancelarGasto').style.display = 'block';
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1005,8 +1043,9 @@
 
         function eliminarGasto(index) {
             abrirCustomConfirm(t('confirmDeleteExpense'), () => {
-                if (editandoGastoIndex === index) cancelarEdicionGasto(); datos.splice(index, 1);
-                try { localStorage.setItem('deliveryData', JSON.stringify(datos)); } catch(e) {} actualizarInterfaz();
+                const item = window.datos[index];
+                if (editandoGastoIndex === index) cancelarEdicionGasto();
+                cloudEliminarTransaccion(item.firestoreId);
             });
         }
 
@@ -1014,7 +1053,7 @@
             if (!balanceChart) return;
             const hoyObj = new Date(); const currentYear = hoyObj.getFullYear(); const currentMonth = hoyObj.getMonth();
             let sumaMes = 0; let gasMes = 0; let comidaMes = 0;
-            datos.forEach(d => {
+            window.datos.forEach(d => {
                 const [y, m] = d.fecha.split('-');
                 if (parseInt(y) === currentYear && (parseInt(m) - 1) === currentMonth) {
                     if (d.tipo !== 'gasto' && d.monto > 0) sumaMes += d.monto;
@@ -1026,9 +1065,9 @@
         }
 
         function actualizarInterfaz() {
-            if (!perfil) return;
-            document.getElementById('printNombreCompleto').innerText = `${perfil.nombre} ${perfil.apellido}`.trim(); document.getElementById('printDocIdentidad').innerText = `ID: ${perfil.cedula}`;
-            const deliveriesValidos = datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
+            if (!window.perfil) return;
+            document.getElementById('printNombreCompleto').innerText = `${window.perfil.nombre} ${window.perfil.apellido}`.trim(); document.getElementById('printDocIdentidad').innerText = `ID: ${window.perfil.cedula}`;
+            const deliveriesValidos = window.datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
             const totalText = currentLang === 'es' ? 'Total Histórico de Deliveries:' : 'Total Historical Deliveries:';
             document.getElementById('printTotalDeliveries').innerText = `${totalText} ${deliveriesValidos.length}`;
             const historyBody = document.getElementById('printHistoryBody'); historyBody.innerHTML = '';
@@ -1039,16 +1078,16 @@
             const fechaTextoLegible = hoyObj.toLocaleDateString(localeStr, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
             document.getElementById('fechaHoySub').innerText = fechaTextoLegible; document.getElementById('fechaGastoHoySub').innerText = fechaTextoLegible;
 
-            const entregasHoyIndex = []; datos.forEach((d, idx) => { if (d.fecha === hoyStr && d.tipo !== 'gasto' && d.monto > 0) entregasHoyIndex.push(idx); });
+            const entregasHoyIndex = []; window.datos.forEach((d, idx) => { if (d.fecha === hoyStr && d.tipo !== 'gasto' && d.monto > 0) entregasHoyIndex.push(idx); });
             document.getElementById('cantHoy').innerText = entregasHoyIndex.length;
-            const sumaHoy = entregasHoyIndex.reduce((acc, idx) => acc + datos[idx].monto, 0); document.getElementById('totalHoy').innerText = `$${sumaHoy.toFixed(2)}`;
+            const sumaHoy = entregasHoyIndex.reduce((acc, idx) => acc + window.datos[idx].monto, 0); document.getElementById('totalHoy').innerText = `$${sumaHoy.toFixed(2)}`;
             if (document.getElementById('graficoPedidosHoy')) document.getElementById('graficoPedidosHoy').innerText = entregasHoyIndex.length;
 
             const lista = document.getElementById('listaHoy'); lista.innerHTML = '';
             if (entregasHoyIndex.length === 0) { lista.innerHTML = `<div class="empty-msg">${t('msgNoDeliveriesToday')}</div>`; } 
             else {
                 [...entregasHoyIndex].reverse().forEach(idx => {
-                    const e = datos[idx]; const editTxt = currentLang === 'es' ? 'Editar' : 'Edit'; const delTxt = currentLang === 'es' ? 'Borrar' : 'Delete';
+                    const e = window.datos[idx]; const editTxt = currentLang === 'es' ? 'Editar' : 'Edit'; const delTxt = currentLang === 'es' ? 'Borrar' : 'Delete';
                     const dateLbl = currentLang === 'es' ? 'Fecha' : 'Date'; const timeLbl = currentLang === 'es' ? 'Hora' : 'Time';
                     lista.innerHTML += `<li><div class="delivery-info"><strong>$${e.monto.toFixed(2)}</strong><span>${dateLbl}: ${obtenerFechaSegura(e)} | ${timeLbl}: ${e.hora}</span></div>
                     <div class="actions"><button class="btn-action btn-edit" onclick="editarEntrega(${idx})">${editTxt}</button><button class="btn-action btn-delete" onclick="eliminarEntrega(${idx})">${delTxt}</button></div></li>`;
@@ -1056,7 +1095,7 @@
             }
 
             const gastosHoyIndex = []; let gasHoyTotal = 0; let comidaHoyTotal = 0;
-            datos.forEach((d, idx) => {
+            window.datos.forEach((d, idx) => {
                 if (d.fecha === hoyStr && d.tipo === 'gasto') { gastosHoyIndex.push(idx); if (d.tipoGasto === 'gasolina') gasHoyTotal += d.monto; if (d.tipoGasto === 'comida') comidaHoyTotal += d.monto; }
             });
             document.getElementById('totalGasHoy').innerText = `$${gasHoyTotal.toFixed(2)}`; document.getElementById('totalComidaHoy').innerText = `$${comidaHoyTotal.toFixed(2)}`;
@@ -1065,7 +1104,7 @@
             if (gastosHoyIndex.length === 0) { listaGastos.innerHTML = `<div class="empty-msg">${t('msgNoExpensesToday')}</div>`; } 
             else {
                 [...gastosHoyIndex].reverse().forEach(idx => {
-                    const g = datos[idx]; let etiqueta = g.tipoGasto === 'gasolina' ? (currentLang === 'es' ? '⛽ Gasolina' : '⛽ Gas') : (currentLang === 'es' ? '🍔 Comida' : '🍔 Food');
+                    const g = window.datos[idx]; let etiqueta = g.tipoGasto === 'gasolina' ? (currentLang === 'es' ? '⛽ Gasolina' : '⛽ Gas') : (currentLang === 'es' ? '🍔 Comida' : '🍔 Food');
                     const editTxt = currentLang === 'es' ? 'Editar' : 'Edit'; const delTxt = currentLang === 'es' ? 'Borrar' : 'Delete';
                     const dateLbl = currentLang === 'es' ? 'Fecha' : 'Date'; const timeLbl = currentLang === 'es' ? 'Hora' : 'Time';
                     listaGastos.innerHTML += `<li><div class="delivery-info"><strong>${etiqueta}: $${g.monto.toFixed(2)}</strong><span>${dateLbl}: ${obtenerFechaSegura(g)} | ${timeLbl}: ${g.hora}</span></div>
@@ -1073,13 +1112,13 @@
                 });
             }
 
-            const diaInicioConfig = perfil.inicioSemana; const hoyBase = new Date(hoyObj.getFullYear(), hoyObj.getMonth(), hoyObj.getDate());
+            const diaInicioConfig = window.perfil.inicioSemana; const hoyBase = new Date(hoyObj.getFullYear(), hoyObj.getMonth(), hoyObj.getDate());
             const dayOffset = (hoyBase.getDay() - diaInicioConfig + 7) % 7; const startOfWeek = new Date(hoyBase); startOfWeek.setDate(hoyBase.getDate() - dayOffset);
             const endOfWeek = new Date(startOfWeek); endOfWeek.setDate(startOfWeek.getDate() + 6);
             const weekLbl = currentLang === 'es' ? 'Semana' : 'Week';
             document.getElementById('rangoSemanaSub').innerText = `${weekLbl} (${formatDDMMYYYY(startOfWeek)} al ${formatDDMMYYYY(endOfWeek)})`;
 
-            const entregasSemana = datos.filter(d => {
+            const entregasSemana = window.datos.filter(d => {
                 if (d.tipo === 'gasto' || d.monto <= 0) return false;
                 const [y, m, day] = d.fecha.split('-'); const dDate = new Date(y, m - 1, day); return dDate >= startOfWeek && dDate <= endOfWeek;
             });
@@ -1091,7 +1130,7 @@
             const nombreMes = hoyObj.toLocaleDateString(localeStr, { month: 'long', year: 'numeric' });
             document.getElementById('mesActualSub').innerText = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1);
 
-            const entregasMes = datos.filter(d => {
+            const entregasMes = window.datos.filter(d => {
                 if (d.tipo === 'gasto' || d.monto <= 0) return false; const [y, m] = d.fecha.split('-'); return parseInt(y) === currentYear && (parseInt(m) - 1) === currentMonth;
             });
             document.getElementById('totalMes').innerText = `$${entregasMes.reduce((a, b) => a + b.monto, 0).toFixed(2)}`;
@@ -1110,7 +1149,7 @@
             });
 
             const yearLbl = currentLang === 'es' ? 'Año' : 'Year'; document.getElementById('anioActualSub').innerText = `${yearLbl} ${currentYear}`;
-            const entregasAnio = datos.filter(d => { if (d.tipo === 'gasto' || d.monto <= 0) return false; const [y] = d.fecha.split('-'); return parseInt(y) === currentYear; });
+            const entregasAnio = window.datos.filter(d => { if (d.tipo === 'gasto' || d.monto <= 0) return false; const [y] = d.fecha.split('-'); return parseInt(y) === currentYear; });
             document.getElementById('totalAnio').innerText = `$${entregasAnio.reduce((a, b) => a + b.monto, 0).toFixed(2)}`;
             document.getElementById('diasAnio').innerText = new Set(entregasAnio.map(d => d.fecha)).size;
 
@@ -1119,11 +1158,11 @@
             const mesesMap = {}; entregasAnio.forEach(d => { const [, mStr] = d.fecha.split('-'); const mIndex = parseInt(mStr, 10) - 1; mesesMap[mIndex] = (mesesMap[mIndex] || 0) + d.monto; });
             Object.keys(mesesMap).sort((a,b) => a - b).forEach(mIndex => { desgloseMesesEl.innerHTML += `<div class="breakdown-item"><span>${nombresMeses[mIndex]}:</span><strong>$${mesesMap[mIndex].toFixed(2)}</strong></div>`; });
 
-            const gastosSemana = datos.filter(d => { if (d.tipo !== 'gasto') return false; const [y, m, day] = d.fecha.split('-'); const dDate = new Date(y, m - 1, day); return dDate >= startOfWeek && dDate <= endOfWeek; });
+            const gastosSemana = window.datos.filter(d => { if (d.tipo !== 'gasto') return false; const [y, m, day] = d.fecha.split('-'); const dDate = new Date(y, m - 1, day); return dDate >= startOfWeek && dDate <= endOfWeek; });
             document.getElementById('totalGasSemana').innerText = `$${gastosSemana.filter(d=>d.tipoGasto==='gasolina').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
             document.getElementById('totalComidaSemana').innerText = `$${gastosSemana.filter(d=>d.tipoGasto==='comida').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
 
-            const gastosMes = datos.filter(d => { if (d.tipo !== 'gasto') return false; const [y, m] = d.fecha.split('-'); return parseInt(y) === currentYear && (parseInt(m) - 1) === currentMonth; });
+            const gastosMes = window.datos.filter(d => { if (d.tipo !== 'gasto') return false; const [y, m] = d.fecha.split('-'); return parseInt(y) === currentYear && (parseInt(m) - 1) === currentMonth; });
             document.getElementById('totalGasMes').innerText = `$${gastosMes.filter(d=>d.tipoGasto==='gasolina').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
             document.getElementById('totalComidaMes').innerText = `$${gastosMes.filter(d=>d.tipoGasto==='comida').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
 
@@ -1146,7 +1185,7 @@
         function mostrarOpcionesExportar() { document.getElementById('btnShowExport').style.display = 'none'; document.getElementById('opcionesExportar').style.display = 'block'; }
         function cancelarExportar() { document.getElementById('btnShowExport').style.display = 'block'; document.getElementById('opcionesExportar').style.display = 'none'; }
         function confirmarExportarExcel() {
-            const deliveriesValidos = datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
+            const deliveriesValidos = window.datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
             if (deliveriesValidos.length === 0) { mostrarMensaje('deliveryAlerta', t('msgNoDataExport')); cancelarExportar(); return; }
             const inputNombre = document.getElementById('nombreReporteInput'); let nombreUsuario = inputNombre ? inputNombre.value.trim() : "reporte_deliveries";
             nombreUsuario = nombreUsuario === "" ? "reporte_deliveries" : nombreUsuario; const nombreLimpio = nombreUsuario.replace(/\.csv$/i, '');
@@ -1169,7 +1208,7 @@
             if (conSufijo) { const ahora = new Date(); const timestamp = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}_${String(ahora.getHours()).padStart(2, '0')}${String(ahora.getMinutes()).padStart(2, '0')}${String(ahora.getSeconds()).padStart(2, '0')}`; nombreArchivo = `${nombreLimpio}_${timestamp}.csv`; }
             let archivosExportados = []; try { archivosExportados = JSON.parse(localStorage.getItem('archivosExportados')) || []; } catch(e){}
             if (!archivosExportados.includes(nombreLimpio)) { archivosExportados.push(nombreLimpio); try { localStorage.setItem('archivosExportados', JSON.stringify(archivosExportados)); } catch(e){} }
-            const deliveriesValidos = datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
+            const deliveriesValidos = window.datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
             const headerDate = t('thDate'); const headerTime = t('thTime'); const headerAmount = t('thAmount');
             let csvContent = `${headerDate},${headerTime},${headerAmount}\n`;
             deliveriesValidos.forEach(d => { csvContent += `${obtenerFechaSegura(d)},${d.hora},${d.monto}\n`; });
