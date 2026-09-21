@@ -9,7 +9,7 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.59.1</title>
+    <title>Control Delivery v1.59.3</title>
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -136,8 +136,6 @@
 
                     if (transQuery.empty) {
                         let datosLocales = null;
-                        
-                        // Buscar en todas las posibles claves anteriores de localStorage
                         const posiblesClaves = ['datos', 'delivery_datos', 'control_delivery', 'registros', 'historial'];
                         for (let clave of posiblesClaves) {
                             const val = localStorage.getItem(clave);
@@ -152,7 +150,6 @@
                             }
                         }
 
-                        // Si aun así no encuentra, buscar cualquier elemento en localStorage que parezca un array de transacciones
                         if (!datosLocales) {
                             for (let i = 0; i < localStorage.length; i++) {
                                 const key = localStorage.key(i);
@@ -167,7 +164,6 @@
                             }
                         }
 
-                        // Si encontramos datos locales, subirlos a Firestore
                         if (datosLocales && datosLocales.length > 0) {
                             for (let item of datosLocales) {
                                 delete item.firestoreId;
@@ -183,7 +179,7 @@
                                     });
                                 }
                             }
-                            transQuery = await getDocs(transRef); // Recargar ya migrados
+                            transQuery = await getDocs(transRef);
                         }
                     }
 
@@ -257,6 +253,7 @@
                 lista.innerHTML = '';
                 querySnapshot.forEach((docSnap) => {
                     const data = docSnap.data();
+                    const uidCliente = docSnap.id;
                     const fechaObj = new Date(data.licenciaVence);
                     const fechaVence = fechaObj.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
                     const isVencido = Date.now() > data.licenciaVence && data.rol !== 'admin';
@@ -264,12 +261,16 @@
                     const textoEstado = data.rol === 'admin' ? 'ILIMITADO (Admin)' : (isVencido ? 'VENCIDA' : 'ACTIVA');
 
                     lista.innerHTML += `
-                    <li style="flex-direction:column; align-items:flex-start; background: var(--card-bg, #fff); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border-color, #e2e8f0);">
-                        <strong style="font-size: 1.1rem;">${data.email}</strong>
+                    <li style="flex-direction:column; align-items:flex-start; background: var(--card-bg, #fff); border-radius: 8px; padding: 12px; margin-bottom: 12px; border: 1px solid var(--border-color, #e2e8f0);">
+                        <strong style="font-size: 1.1rem; margin-bottom: 2px;">${data.email}</strong>
                         <span style="font-size: 0.85rem; color: #64748b; margin-bottom: 5px;">Vence: ${fechaVence}</span>
                         <span style="font-size: 0.8rem; font-weight: bold; color: ${colorEstado}; padding: 3px 8px; background: ${colorEstado}20; border-radius: 4px; margin-bottom: 10px;">${textoEstado}</span>
                         
-                        ${data.rol !== 'admin' ? `<button onclick="renovarLicenciaFirebase(event, '${docSnap.id}')" style="padding: 8px; font-size: 0.9rem; background: #3b82f6;">+ Otorgar 1 Año (365 días)</button>` : '<span style="font-size: 0.8rem; color:#8b5cf6;">Cuenta Administrativa Intocable</span>'}
+                        <div style="display: flex; gap: 6px; width: 100%; flex-wrap: wrap;">
+                            ${data.rol !== 'admin' ? `<button onclick="renovarLicenciaFirebase(event, '${uidCliente}')" style="flex:1; padding: 8px; font-size: 0.8rem; background: #3b82f6;">+ 1 Año</button>` : ''}
+                            <button onclick="verMovimientosUsuario('${uidCliente}', '${data.email}')" style="flex:1; padding: 8px; font-size: 0.8rem; background: #8b5cf6;">👁️ Ver Movimientos</button>
+                            <button onclick="descargarRespaldoUsuario('${uidCliente}', '${data.email}')" style="flex:1; padding: 8px; font-size: 0.8rem; background: #107c41;">📥 Descargar</button>
+                        </div>
                     </li>`;
                 });
             } catch (e) { lista.innerHTML = '<div style="color:red; text-align:center;">Error al cargar la base de datos.</div>'; }
@@ -284,6 +285,117 @@
                 await updateDoc(doc(db, "usuarios", uid), { licenciaVence: nuevosMilisegundos });
                 window.abrirAdminPanel();
             } catch (e) { btn.innerText = "Error. Intentar de nuevo."; btn.disabled = false; }
+        };
+
+        // VISUALIZAR MOVIMIENTOS DE UN USUARIO ESPECÍFICO EN PANTALLA
+        window.verMovimientosUsuario = async (uidCliente, emailCliente) => {
+            const screen = document.getElementById('adminUserDetailScreen');
+            screen.style.display = 'block';
+            document.getElementById('adminDetailEmail').innerText = `Cliente: ${emailCliente}`;
+            const listaEl = document.getElementById('listaAdminMovimientos');
+            listaEl.innerHTML = '<div style="text-align:center; padding:20px;">Cargando movimientos...</div>';
+            
+            document.getElementById('adminTotalHoy').innerText = "$0.00";
+            document.getElementById('adminTotalMes').innerText = "$0.00";
+            document.getElementById('adminTotalAnio').innerText = "$0.00";
+
+            try {
+                const transSnap = await getDocs(collection(db, "usuarios", uidCliente, "transacciones"));
+                let transacciones = [];
+                transSnap.forEach(tDoc => {
+                    transacciones.push({ id: tDoc.id, ...tDoc.data() });
+                });
+
+                if (transacciones.length === 0) {
+                    listaEl.innerHTML = '<div class="empty-msg">Este usuario no tiene transacciones registradas.</div>';
+                    return;
+                }
+
+                // Ordenar desde el más actual hasta el más antiguo
+                transacciones.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+                const hoyObj = new Date();
+                const hoyStr = `${hoyObj.getFullYear()}-${String(hoyObj.getMonth() + 1).padStart(2, '0')}-${String(hoyObj.getDate()).padStart(2, '0')}`;
+                const currentYear = hoyObj.getFullYear();
+                const currentMonth = hoyObj.getMonth();
+
+                let sumaHoy = 0;
+                let sumaMes = 0;
+                let sumaAnio = 0;
+
+                listaEl.innerHTML = '';
+                transacciones.forEach(d => {
+                    // Calcular totales solo de Deliveries (o transacciones válidas con monto positivo que no sean gastos)
+                    const esGasto = d.tipo === 'gasto';
+                    const monto = d.monto || 0;
+
+                    if (!esGasto && monto > 0) {
+                        if (d.fecha === hoyStr) sumaHoy += monto;
+                        const [y, m] = (d.fecha || '').split('-');
+                        if (y && parseInt(y) === currentYear) {
+                            sumaAnio += monto;
+                            if ((parseInt(m) - 1) === currentMonth) {
+                                sumaMes += monto;
+                            }
+                        }
+                    }
+
+                    const fechaFormateada = d.fechaTexto || d.fecha || '';
+                    const etiqueta = esGasto ? `Gasto (${d.tipoGasto || 'general'})` : 'Delivery';
+                    const colorMonto = esGasto ? '#ef4444' : '#10b981';
+                    const signo = esGasto ? '-' : '+';
+
+                    listaEl.innerHTML += `
+                    <li>
+                        <div class="delivery-info">
+                            <strong style="color: ${colorMonto};">${signo}$${monto.toFixed(2)} (${etiqueta})</strong>
+                            <span>Fecha: ${fechaFormateada} | Hora: ${d.hora || '--:--'}</span>
+                        </div>
+                    </li>`;
+                });
+
+                document.getElementById('adminTotalHoy').innerText = `$${sumaHoy.toFixed(2)}`;
+                document.getElementById('adminTotalMes').innerText = `$${sumaMes.toFixed(2)}`;
+                document.getElementById('adminTotalAnio').innerText = `$${sumaAnio.toFixed(2)}`;
+
+            } catch (err) {
+                console.error("Error cargando movimientos de usuario:", err);
+                listaEl.innerHTML = '<div style="color:red; text-align:center;">Error al cargar los datos del usuario.</div>';
+            }
+        };
+
+        window.cerrarAdminUserDetailScreen = () => {
+            document.getElementById('adminUserDetailScreen').style.display = 'none';
+        };
+
+        window.descargarRespaldoUsuario = async (uidCliente, emailCliente) => {
+            try {
+                const transSnap = await getDocs(collection(db, "usuarios", uidCliente, "transacciones"));
+                if (transSnap.empty) {
+                    alert(`El usuario ${emailCliente} no tiene transacciones registradas.`);
+                    return;
+                }
+                
+                let csvContent = `Fecha,Hora,Tipo,Monto\n`;
+                transSnap.forEach((tDoc) => {
+                    const d = tDoc.data();
+                    const fechaF = d.fechaTexto || d.fecha || '';
+                    const tipoF = d.tipo === 'gasto' ? `Gasto (${d.tipoGasto})` : 'Delivery';
+                    csvContent += `${fechaF},${d.hora || ''},${tipoF},${d.monto}\n`;
+                });
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", `respaldo_${emailCliente.replace(/@/, '_at_')}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (err) {
+                console.error("Error descargando respaldo:", err);
+                alert("No se pudo descargar el respaldo. Verifica los permisos.");
+            }
         };
     </script>
 
@@ -342,7 +454,7 @@
         .modal-card { background: white; padding: 20px; border-radius: 12px; width: 100%; max-width: 320px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .modal-buttons { display: flex; gap: 10px; margin-top: 15px; }
 
-        #historialTotalScreen, #historialGastosScreen, #adminScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f4f6f8; z-index: 99999; padding: 15px; overflow-y: auto; }
+        #historialTotalScreen, #historialGastosScreen, #adminScreen, #adminUserDetailScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f4f6f8; z-index: 99999; padding: 15px; overflow-y: auto; }
 
         #loginScreen, #expiredScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 99998; flex-direction: column; justify-content: center; align-items: center; padding: 20px; text-align: center; }
         #authScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 99997; flex-direction: column; justify-content: center; align-items: center; }
@@ -361,7 +473,7 @@
         [data-theme="dark"] { --bg-color: #121212 !important; --text-color: #e0e0e0 !important; --card-bg: #1e1e1e !important; --border-color: #333333 !important; }
         [data-theme="dark"] body, [data-theme="dark"] #authScreen, [data-theme="dark"] #loginScreen, [data-theme="dark"] #expiredScreen { background: var(--bg-color); color: var(--text-color); }
         [data-theme="dark"] #splashScreen { background: #121212; color: #e0e0e0; }
-        [data-theme="dark"] #historialTotalScreen, [data-theme="dark"] #historialGastosScreen, [data-theme="dark"] #adminScreen { background: var(--bg-color); color: var(--text-color); }
+        [data-theme="dark"] #historialTotalScreen, [data-theme="dark"] #historialGastosScreen, [data-theme="dark"] #adminScreen, [data-theme="dark"] #adminUserDetailScreen { background: var(--bg-color); color: var(--text-color); }
         [data-theme="dark"] .card, [data-theme="dark"] .modal-card { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); }
         [data-theme="dark"] h2 { color: #f1f5f9; }
         [data-theme="dark"] input, [data-theme="dark"] select { background: #2d2d2d; color: #e0e0e0; border-color: #444; }
@@ -472,10 +584,44 @@
             </div>
             
             <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 15px;">
-                Control total de usuarios registrados. Al presionar "Otorgar 1 Año", se sumarán 365 días a partir de hoy a la cuenta del cliente.
+                Control total de usuarios registrados. Puedes otorgar licencias, ver sus movimientos detallados o descargar respaldos.
             </p>
 
             <ul id="listaUsuariosAdmin" style="max-height: 75vh; overflow-y: auto; list-style: none;"></ul>
+        </div>
+    </div>
+
+    <!-- 6. PANTALLA DE AUDITORÍA: DETALLE Y MOVIMIENTOS DE USUARIO -->
+    <div id="adminUserDetailScreen">
+        <div style="max-width: 500px; margin: 0 auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 style="color: #8b5cf6;">📊 Auditoría de Movimientos</h2>
+                <button class="btn-secondary" style="width: auto; padding: 8px 12px; margin: 0;" onclick="cerrarAdminUserDetailScreen()">← Volver al Panel</button>
+            </div>
+            
+            <div class="card">
+                <strong id="adminDetailEmail" style="font-size: 1.1rem; color: #10b981; display: block; margin-bottom: 12px;"></strong>
+                
+                <div class="stat-grid" style="margin-bottom: 10px;">
+                    <div class="stat-box">
+                        <small>Total Día</small>
+                        <strong id="adminTotalHoy" style="color: #10b981;">$0.00</strong>
+                    </div>
+                    <div class="stat-box">
+                        <small>Total Mes</small>
+                        <strong id="adminTotalMes" style="color: #3b82f6;">$0.00</strong>
+                    </div>
+                </div>
+                <div class="stat-box" style="margin-bottom: 10px;">
+                    <small>Total Año</small>
+                    <strong id="adminTotalAnio" style="color: #f59e0b;">$0.00</strong>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 10px;">Historial Completo (Más Reciente a Más Antiguo)</h2>
+                <ul id="listaAdminMovimientos" style="max-height: 50vh; overflow-y: auto;"></ul>
+            </div>
         </div>
     </div>
 
@@ -505,7 +651,7 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.59.1</span>
+        <span>Versión 1.59.3</span>
         <div class="header-buttons">
             <div class="custom-dropdown">
                 <button id="langDropdownBtn" class="custom-dropdown-btn" onclick="toggleLangMenu()">Español ▾</button>
@@ -899,7 +1045,7 @@
                 document.getElementById('mainApp').style.display = 'none';
                 document.getElementById('authScreen').style.display = 'none';
             } else {
-                const bioEnabled = localStorage.getItem('bioEnabled') === 'true';
+                const bioEnabled = localStorage.getItem('bioEnabled'] === 'true';
                 if (bioEnabled) {
                     document.getElementById('authScreen').style.display = 'flex';
                 } else {
