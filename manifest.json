@@ -4,12 +4,14 @@
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "theme_color": "#10b981",
+  "description": "Aplicación PWA para gestionar registros de delivery, gastos e ingresos.",
   "icons": [
     {
       "src": "icon.png",
-      "sizes": "any",
-      "type": "image/png"
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
