@@ -1,4 +1,4 @@
-const CACHE_NAME = 'delivery-cache-v1.59.5';
+const CACHE_NAME = 'delivery-cache-v1.60.0';
 const assetsToCache = [
   '/',
   '/index.html',
@@ -27,10 +27,20 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Estrategia Network First (Prioriza la red, si falla usa el caché local)
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return cachedResponse || fetch(event.request);
+    fetch(event.request).then((networkResponse) => {
+      return caches.open(CACHE_NAME).then((cache) => {
+        // Almacena dinámicamente peticiones GET válidas para uso offline
+        if (event.request.method === 'GET' && !event.request.url.startsWith('chrome-extension')) {
+            cache.put(event.request, networkResponse.clone());
+        }
+        return networkResponse;
+      });
+    }).catch(() => {
+      // Si no hay red, entrega la versión en caché
+      return caches.match(event.request);
     })
   );
 });
