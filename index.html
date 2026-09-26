@@ -4,12 +4,12 @@
     <link rel="manifest" href="manifest.json">
     <script>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js?v=1.60.2');
+        navigator.serviceWorker.register('sw.js?v=1.60.3');
       }
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.60.2</title>
+    <title>Control Delivery v1.60.3</title>
     <meta name="theme-color" content="#10b981">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -237,6 +237,7 @@
             } catch (e) { btn.innerText = "Error. Intentar de nuevo."; btn.disabled = false; }
         };
 
+        // CORRECCIÓN AUDITORÍA (Ver Movimientos)
         window.verMovimientosUsuario = async (uidCliente, emailCliente) => {
             const screen = document.getElementById('adminUserDetailScreen');
             screen.style.display = 'block';
@@ -269,7 +270,9 @@
 
                 listaEl.innerHTML = '';
                 transacciones.forEach(d => {
-                    const esGasto = d.tipo === 'gasto'; const monto = d.monto || 0;
+                    const esGasto = d.tipo === 'gasto' || d.tipoGasto !== undefined; 
+                    const monto = d.monto || 0;
+
                     if (!esGasto && monto > 0) {
                         if (d.fecha === hoyStr) sumaHoy += monto;
                         const [y, m] = (d.fecha || '').split('-');
@@ -280,7 +283,7 @@
                     }
 
                     const fechaFormateada = d.fechaTexto || d.fecha || '';
-                    const etiqueta = esGasto ? `Gasto (${d.tipoGasto || 'general'})` : 'Delivery';
+                    const etiqueta = esGasto ? `Gasto (${d.tipoGasto || 'General'})` : 'Delivery';
                     const colorMonto = esGasto ? '#ef4444' : '#10b981';
                     const signo = esGasto ? '-' : '+';
                     
@@ -307,7 +310,7 @@
 
         window.cerrarAdminUserDetailScreen = () => { document.getElementById('adminUserDetailScreen').style.display = 'none'; };
 
-        // DESCARGA DE ADMIN (INCLUYE GASTOS Y DELIVERIES ORDENADOS CLARAMENTE)
+        // CORRECCIÓN DESCARGA ADMIN (GASTOS Y DELIVERIES UNIFICADOS)
         window.descargarRespaldoUsuario = async (uidCliente, emailCliente) => {
             try {
                 let nombreCompleto = "";
@@ -325,14 +328,28 @@
 
                 if (transSnap.empty) { alert(`El usuario ${emailCliente} no tiene transacciones.`); return; }
                 
-                let csvContent = `Fecha,Hora,Tipo,Monto,Pedido,Nota\n`;
+                // Formato Excel Unificado Inteligente
+                let csvContent = `Fecha,Hora,Tipo Movimiento,Monto,Detalle/Pedido,Nota\n`;
                 transSnap.forEach((tDoc) => {
                     const d = tDoc.data();
                     const fechaF = d.fechaTexto || d.fecha || '';
-                    const tipoF = d.tipo === 'gasto' ? `Gasto (${d.tipoGasto})` : 'Delivery';
-                    const numPedF = d.numPedido ? d.numPedido.replace(/,/g, ' ') : '';
+                    const montoF = d.monto || 0;
+                    
+                    // Condición robusta para detectar gastos viejos o nuevos
+                    const esGasto = d.tipo === 'gasto' || d.tipoGasto !== undefined;
+                    
+                    const tipoF = esGasto ? `Gasto` : 'Delivery';
+                    
+                    let detalleF = "";
+                    if (esGasto) {
+                        detalleF = d.tipoGasto ? d.tipoGasto : 'General';
+                    } else {
+                        detalleF = d.numPedido ? d.numPedido.replace(/,/g, ' ') : '';
+                    }
+
                     const notaF = d.nota ? d.nota.replace(/,/g, ' ') : '';
-                    csvContent += `${fechaF},${d.hora || ''},${tipoF},${d.monto},${numPedF},${notaF}\n`;
+                    
+                    csvContent += `${fechaF},${d.hora || ''},${tipoF},${montoF},${detalleF},${notaF}\n`;
                 });
 
                 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -452,7 +469,6 @@
         .print-table th, .print-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         .print-table th { background-color: #f4f6f8; color: #333; }
 
-        /* MEJORA PWA IMPRESIÓN: Adaptado para imprimir desde cualquier pestaña visible */
         @media print {
             body { background: white; padding: 0; margin: 0; max-width: 100%; color: #000; }
             #printHeader { display: block; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; text-align: right; }
@@ -595,11 +611,12 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.60.2</span>
+        <span>Versión 1.60.3</span>
         <div class="header-buttons">
             <div class="custom-dropdown">
                 <button id="langDropdownBtn" class="custom-dropdown-btn" onclick="toggleLangMenu()">Español ▾</button>
                 <div id="langDropdownMenu" class="custom-dropdown-menu">
+                    <!-- IDIOMAS (10 EN TOTAL CON RUSO Y ÁRABE) -->
                     <div class="custom-dropdown-item" onclick="cambiarIdioma('es')">Español</div>
                     <div class="custom-dropdown-item" onclick="cambiarIdioma('en')">English</div>
                     <div class="custom-dropdown-item" onclick="cambiarIdioma('pt')">Português</div>
@@ -608,6 +625,8 @@
                     <div class="custom-dropdown-item" onclick="cambiarIdioma('it')">Italiano</div>
                     <div class="custom-dropdown-item" onclick="cambiarIdioma('ja')">日本語</div>
                     <div class="custom-dropdown-item" onclick="cambiarIdioma('zh')">中文</div>
+                    <div class="custom-dropdown-item" onclick="cambiarIdioma('ru')">Русский</div>
+                    <div class="custom-dropdown-item" onclick="cambiarIdioma('ar')">العربية</div>
                 </div>
             </div>
             <button class="theme-toggle" onclick="toggleSound()" id="btnSound" title="Sonido">🔊</button>
@@ -825,8 +844,6 @@
             </div>
 
             <button class="btn-secondary" onclick="abrirHistorialGastos()" data-i18n="btnAllExpensesHistory" style="margin-bottom: 10px;">📋 Ver Todos los Gastos</button>
-            
-            <!-- NUEVOS BOTONES DE IMPRIMIR Y EXPORTAR EN PESTAÑA GASTOS -->
             <button class="btn-print" onclick="imprimir('gastos')" data-i18n="btnPrint" style="margin-bottom: 10px;">🖨️ Imprimir / Guardar PDF</button>
             <button class="btn-excel" id="btnShowExportGastos" onclick="mostrarOpcionesExportar('gastos')" data-i18n="btnExportExcel">📊 Exportar a Excel</button>
             
@@ -919,10 +936,12 @@
             de: { loginSub: "Anmelden", loginEmailPh: "E-Mail", loginPassPh: "Passwort", btnLogin: "Einloggen", btnRegister: "Konto erstellen", expiredTitle: "⚠️ Lizenz abgelaufen", expiredSub: "Ihre Lizenz ist beendet.", btnLogout: "Abmelden", configTitle: "Konfiguration", configSub: "Daten eingeben", placeholderNombre: "Vorname", placeholderApellido: "Nachname", placeholderCedula: "Ausweis", startWeekLabel: "Woche beginnt am:", optMon: "Montag", optTue: "Dienstag", optWed: "Mittwoch", optThu: "Donnerstag", optFri: "Freitag", optSat: "Samstag", optSun: "Sonntag", securityLabel: "Sicherheit:", btnEnableBio: "🔒 Sperre aktivieren", btnDisableBio: "🔓 Sperre deaktivieren", authTitle: "Willkommen", authSub: "Zum Starten berühren", btnSaveConfig: "Speichern", tabDeliveries: "📦 Lieferungen", tabExpenses: "⛽ Ausgaben", tabChart: "📊 Grafik", regDeliveryTitle: "Lieferung erfassen", regDeliverySub: "Betrag eingeben", placeholderMonto: "Betrag ($)", placeholderPedido: "Bestellnummer (opt.)", placeholderNota: "Notiz (optional)", btnAddDelivery: "+ Lieferung hinzufügen", btnEditDelivery: "Editieren Änderungen", btnCancelEdit: "Abbrechen", todaySummary: "Heute Zusammenfassung", statDeliveries: "Lieferungen", statTotalToday: "Gesamt Heute", yesterdaySummary: "Gestern Zusammenfassung", statDeliveriesYesterday: "Lieferungen", statTotalYesterday: "Gesamt Gestern", weekSummary: "Wochenübersicht", statTotalWeek: "Gesamt Woche", statDaysWorked: "Arbeitstage", monthSummary: "Monatsübersicht", statTotalMonth: "Gesamt Monat", yearSummary: "Jahresübersicht", statTotalYear: "Gesamt Jahr", btnPrint: "🖨️ Drucken / PDF", btnAllHistory: "📋 Verlauf anzeigen", btnAllExpensesHistory: "📋 Ausgaben anzeigen", btnExportExcel: "📊 Excel-Export", historyScreenTitle: "Lieferverlauf", expensesHistoryScreenTitle: "Ausgabenverlauf", btnBack: "← Zurück", btnFilter: "Filtern", exportSub: "Dateiname:", btnCancel: "Abbrechen", btnDownload: "Herunterladen", btnContinue: "Weiter", modalExcelTitle: "Excel-Export", modalExcelDesc: "Drücken Sie weiter.", btnSuffix: "Suffix", btnOverwrite: "Überschreiben", regExpenseTitle: "Ausgabe erfassen", regExpenseSub: "Typ auswählen", optGas: "⛽ Benzin", optFood: "🍔 Essen", btnAddExpense: "+ Ausgabe", todayExpenses: "Ausgaben Heute", statGasToday: "Benzin Heute", statFoodToday: "Essen Heute", weekExpenses: "Ausgaben Woche", statGasWeek: "Benzin Woche", statFoodWeek: "Essen Woche", monthExpenses: "Ausgaben Monat", statGasMonth: "Benzin Monat", statFoodMonth: "Essen Monat", chartTitle: "Visuelle Bilanz", chartSub: "Einnahmen vs Ausgaben", chartOrdersTitle: "Bestellungen", statOrdersToday: "Heute", statOrdersWeek: "Woche", statOrdersMonth: "Monat", btnEditProfile: "⚙️ Profil bearbeiten", modalConfirmTitle: "Bestätigung", btnAccept: "Akzeptieren", printListTitle: "Lieferliste", thDate: "Datum", thTime: "Zeit", thAmount: "Betrag", msgInvalidAmount: "Ungültiger Betrag", msgInvalidExpense: "Ungültiger Betrag", msgInvalidProfile: "Name und ID erforderlich", msgNoDataExport: "Keine Daten.", msgNoDeliveriesToday: "Keine Lieferungen", msgNoExpensesToday: "Keine Ausgaben", msgNoDeliveriesHistory: "Keine Lieferungen", msgNoExpensesHistory: "Keine Ausgaben", confirmDeleteDelivery: "Lieferung löschen?", confirmDeleteExpense: "Ausgabe löschen?", splashSub: "Laden...", msgDownloadInfo: "📁 Gespeichert.", msgBioSuccess: "Sperre aktiv.", msgBioError: "Fehler.", msgBioUnauth: "Nicht verifiziert." },
             it: { loginSub: "Accedi", loginEmailPh: "Email", loginPassPh: "Password", btnLogin: "Login", btnRegister: "Crea Account", expiredTitle: "⚠️ Licenza scaduta", expiredSub: "La licenza è terminata.", btnLogout: "Esci", configTitle: "Configurazione", configSub: "Inserisci i dati", placeholderNombre: "Nome", placeholderApellido: "Cognome", placeholderCedula: "Documento", startWeekLabel: "Inizio settimana:", optMon: "Lunedì", optTue: "Martedì", optWed: "Mercoledì", optThu: "Giovedì", optFri: "Venerdì", optSat: "Sabato", optSun: "Domenica", securityLabel: "Sicurezza:", btnEnableBio: "🔒 Attiva Blocco", btnDisableBio: "🔓 Disattiva Blocco", authTitle: "Benvenuto", authSub: "Tocca per iniziare", btnSaveConfig: "Salva", tabDeliveries: "📦 Consegne", tabExpenses: "⛽ Spese", tabChart: "📊 Grafico", regDeliveryTitle: "Registra Consegna", regDeliverySub: "Inserisci importo", placeholderMonto: "Importo ($)", placeholderPedido: "N. Ordine (opz.)", placeholderNota: "Nota (opzionale)", btnAddDelivery: "+ Aggiungi Consegna", btnEditDelivery: "Modifica Cambiamenti", btnCancelEdit: "Annulla", todaySummary: "Riepilogo Oggi", statDeliveries: "Consegne", statTotalToday: "Totale Oggi", yesterdaySummary: "Riepilogo di Ieri", statDeliveriesYesterday: "Consegne", statTotalYesterday: "Totale Ieri", weekSummary: "Riepilogo Settimana", statTotalWeek: "Totale Settimana", statDaysWorked: "Giorni lavorati", monthSummary: "Riepilogo Mese", statTotalMonth: "Totale Mese", yearSummary: "Riepilogo Anno", statTotalYear: "Totale Anno", btnPrint: "🖨️ Stampa / PDF", btnAllHistory: "📋 Vedi Cronologia", btnAllExpensesHistory: "📋 Vedi Spese", btnExportExcel: "📊 Esporta Excel", historyScreenTitle: "Cronologia Consegne", expensesHistoryScreenTitle: "Cronologia Spese", btnBack: "← Indietro", btnFilter: "Filtra", exportSub: "Nome file:", btnCancel: "Annulla", btnDownload: "Scarica", btnContinue: "Continua", modalExcelTitle: "Esporta Excel", modalExcelDesc: "Premi continua.", btnSuffix: "Suffisso", btnOverwrite: "Sovrascrivi", regExpenseTitle: "Registra Spesa", regExpenseSub: "Seleziona tipo", optGas: "⛽ Benzina", optFood: "🍔 Cibo", btnAddExpense: "+ Aggiungi", todayExpenses: "Spese Oggi", statGasToday: "Benzina Oggi", statFoodToday: "Cibo Oggi", weekExpenses: "Spese Settimana", statGasWeek: "Benzina Set", statFoodWeek: "Cibo Set", monthExpenses: "Spese Mese", statGasMonth: "Benzina Mese", statFoodMonth: "Cibo Mese", chartTitle: "Bilancio Visivo", chartSub: "Guadagni vs Spese", chartOrdersTitle: "Totale Ordini", statOrdersToday: "Oggi", statOrdersWeek: "Settimana", statOrdersMonth: "Mese", btnEditProfile: "⚙️ Modifica Profilo", modalConfirmTitle: "Conferma", btnAccept: "Accetta", printListTitle: "Lista Consegne", thDate: "Data", thTime: "Ora", thAmount: "Importo", msgInvalidAmount: "Importo non valido", msgInvalidExpense: "Importo non valido", msgInvalidProfile: "Nome e ID richiesti", msgNoDataExport: "Nessun dato.", msgNoDeliveriesToday: "Nessuna consegna", msgNoExpensesToday: "Nessuna spesa", msgNoDeliveriesHistory: "Nessuna consegna", msgNoExpensesHistory: "Nessuna spesa", confirmDeleteDelivery: "Eliminare consegna?", confirmDeleteExpense: "Eliminare spesa?", splashSub: "Caricamento...", msgDownloadInfo: "📁 Salvato.", msgBioSuccess: "Blocco attivo.", msgBioError: "Errore.", msgBioUnauth: "Non verificato." },
             ja: { loginSub: "ログイン", loginEmailPh: "メール", loginPassPh: "パスワード", btnLogin: "ログイン", btnRegister: "アカウント作成", expiredTitle: "⚠️ ライセンス期限切れ", expiredSub: "ライセンスが終了しました。", btnLogout: "ログアウト", configTitle: "設定", configSub: "データを入力", placeholderNombre: "名", placeholderApellido: "姓", placeholderCedula: "身分証明書", startWeekLabel: "週の始まり:", optMon: "月曜日", optTue: "火曜日", optWed: "水曜日", optThu: "木曜日", optFri: "金曜日", optSat: "土曜日", optSun: "日曜日", securityLabel: "セキュリティ:", btnEnableBio: "🔒 ロックを有効化", btnDisableBio: "🔓 ロックを無効化", authTitle: "ようこそ", authSub: "指紋をタッチ", btnSaveConfig: "保存", tabDeliveries: "📦 配達", tabExpenses: "⛽ 経費", tabChart: "📊 グラフ", regDeliveryTitle: "配達を記録", regDeliverySub: "金額を入力", placeholderMonto: "金額 ($)", placeholderPedido: "注文番号 (任意)", placeholderNota: "メモ (任意)", btnAddDelivery: "+ 配達を追加", btnEditDelivery: "編集 保存", btnCancelEdit: "キャンセル", todaySummary: "今日の概要", statDeliveries: "配達数", statTotalToday: "今日の合計", yesterdaySummary: "昨日の概要", statDeliveriesYesterday: "配達数", statTotalYesterday: "昨日の合計", weekSummary: "週の概要", statTotalWeek: "週の合計", statDaysWorked: "稼働日数", monthSummary: "月の概要", statTotalMonth: "月の合計", yearSummary: "年の概要", statTotalYear: "年の合計", btnPrint: "🖨️ 印刷 / PDF", btnAllHistory: "📋 履歴を見る", btnAllExpensesHistory: "📋 経費を見る", btnExportExcel: "📊 Excel出力", historyScreenTitle: "配達履歴", expensesHistoryScreenTitle: "経費履歴", btnBack: "← 戻る", btnFilter: "フィルター", exportSub: "ファイル名:", btnCancel: "キャンセル", btnDownload: "ダウンロード", btnContinue: "続行", modalExcelTitle: "Excel出力", modalExcelDesc: "続行を押してください", btnSuffix: "接尾辞", btnOverwrite: "上書き", regExpenseTitle: "経費を記録", regExpenseSub: "種類を選択", optGas: "⛽ ガソリン", optFood: "🍔 食事", btnAddExpense: "+ 経費を追加", todayExpenses: "今日の経費", statGasToday: "ガソリン(今日)", statFoodToday: "食事(今日)", weekExpenses: "週の経費", statGasWeek: "ガソリン(週)", statFoodWeek: "食事(週)", monthExpenses: "月の経費", statGasMonth: "ガソリン(月)", statFoodMonth: "食事(月)", chartTitle: "残高", chartSub: "収益 vs 経費", chartOrdersTitle: "合計注文数", statOrdersToday: "今日", statOrdersWeek: "週", statOrdersMonth: "月", btnEditProfile: "⚙️ プロフィール編集", modalConfirmTitle: "確認", btnAccept: "承認", printListTitle: "配達リスト", thDate: "日付", thTime: "時間", thAmount: "金額", msgInvalidAmount: "無効な金額", msgInvalidExpense: "無効な金額", msgInvalidProfile: "名前とIDが必要", msgNoDataExport: "データなし", msgNoDeliveriesToday: "今日の配達なし", msgNoExpensesToday: "今日の経費なし", msgNoDeliveriesHistory: "配達履歴なし", msgNoExpensesHistory: "経費履歴なし", confirmDeleteDelivery: "削除しますか?", confirmDeleteExpense: "削除しますか?", splashSub: "読み込み中...", msgDownloadInfo: "📁 保存されました", msgBioSuccess: "ロック有効", msgBioError: "エラー", msgBioUnauth: "未確認" },
-            zh: { loginSub: "登录", loginEmailPh: "电子邮件", loginPassPh: "密码", btnLogin: "登录", btnRegister: "创建账号", expiredTitle: "⚠️ 许可证已过期", expiredSub: "您的许可证已结束。", btnLogout: "登出", configTitle: "配置", configSub: "输入数据", placeholderNombre: "名字", placeholderApellido: "姓氏", placeholderCedula: "身份证件", startWeekLabel: "本周开始于:", optMon: "星期一", optTue: "星期二", optWed: "星期三", optThu: "星期四", optFri: "星期五", optSat: "星期六", optSun: "星期日", securityLabel: "安全:", btnEnableBio: "🔒 启用锁定", btnDisableBio: "🔓 禁用锁定", authTitle: "欢迎", authSub: "触摸指纹", btnSaveConfig: "保存", tabDeliveries: "📦 配送", tabExpenses: "⛽ 费用", tabChart: "📊 图表", regDeliveryTitle: "记录配送", regDeliverySub: "输入金额", placeholderMonto: "金额 ($)", placeholderPedido: "订单号 (可选)", placeholderNota: "备注 (可选)", btnAddDelivery: "+ 添加配送", btnEditDelivery: "编辑 保存", btnCancelEdit: "取消", todaySummary: "今日总结", statDeliveries: "配送数", statTotalToday: "今日总计", yesterdaySummary: "昨日总结", statDeliveriesYesterday: "配送数", statTotalYesterday: "昨日总计", weekSummary: "本周总结", statTotalWeek: "本周总计", statDaysWorked: "工作天数", monthSummary: "本月总结", statTotalMonth: "本月总计", yearSummary: "年度总结", statTotalYear: "年度总计", btnPrint: "🖨️ 打印 / PDF", btnAllHistory: "📋 查看历史", btnAllExpensesHistory: "📋 查看费用", btnExportExcel: "📊 导出Excel", historyScreenTitle: "配送历史", expensesHistoryScreenTitle: "费用历史", btnBack: "← 返回", btnFilter: "筛选", exportSub: "文件名:", btnCancel: "取消", btnDownload: "下载", btnContinue: "继续", modalExcelTitle: "导出Excel", modalExcelDesc: "点击继续。", btnSuffix: "后缀", btnOverwrite: "覆盖", regExpenseTitle: "记录费用", regExpenseSub: "选择类型", optGas: "⛽ 汽油", optFood: "🍔 食物", btnAddExpense: "+ 添加费用", todayExpenses: "今日费用", statGasToday: "今日汽油", statFoodToday: "今日食物", weekExpenses: "本周费用", statGasWeek: "本周汽油", statFoodWeek: "本周食物", monthExpenses: "本月费用", statGasMonth: "本月汽油", statFoodMonth: "本月食物", chartTitle: "视觉余额", chartSub: "收入 vs 费用", chartOrdersTitle: "总订单", statOrdersToday: "今日", statOrdersWeek: "本周", statOrdersMonth: "本月", btnEditProfile: "⚙️ 编辑配置", modalConfirmTitle: "确认", btnAccept: "接受", printListTitle: "配送列表", thDate: "日期", thTime: "时间", thAmount: "金额", msgInvalidAmount: "无效金额", msgInvalidExpense: "无效金额", msgInvalidProfile: "需要姓名和证件", msgNoDataExport: "没有数据。", msgNoDeliveriesToday: "今日无配送", msgNoExpensesToday: "今日无费用", msgNoDeliveriesHistory: "无配送记录", msgNoExpensesHistory: "无费用记录", confirmDeleteDelivery: "删除配送？", confirmDeleteExpense: "删除费用？", splashSub: "加载中...", msgDownloadInfo: "📁 已保存。", msgBioSuccess: "锁定已启用。", msgBioError: "错误。", msgBioUnauth: "未验证。" }
+            zh: { loginSub: "登录", loginEmailPh: "电子邮件", loginPassPh: "密码", btnLogin: "登录", btnRegister: "创建账号", expiredTitle: "⚠️ 许可证已过期", expiredSub: "您的许可证已结束。", btnLogout: "登出", configTitle: "配置", configSub: "输入数据", placeholderNombre: "名字", placeholderApellido: "姓氏", placeholderCedula: "身份证件", startWeekLabel: "本周开始于:", optMon: "星期一", optTue: "星期二", optWed: "星期三", optThu: "星期四", optFri: "星期五", optSat: "星期六", optSun: "星期日", securityLabel: "安全:", btnEnableBio: "🔒 启用锁定", btnDisableBio: "🔓 禁用锁定", authTitle: "欢迎", authSub: "触摸指纹", btnSaveConfig: "保存", tabDeliveries: "📦 配送", tabExpenses: "⛽ 费用", tabChart: "📊 图表", regDeliveryTitle: "记录配送", regDeliverySub: "输入金额", placeholderMonto: "金额 ($)", placeholderPedido: "订单号 (可选)", placeholderNota: "备注 (可选)", btnAddDelivery: "+ 添加配送", btnEditDelivery: "编辑 保存", btnCancelEdit: "取消", todaySummary: "今日总结", statDeliveries: "配送数", statTotalToday: "今日总计", yesterdaySummary: "昨日总结", statDeliveriesYesterday: "配送数", statTotalYesterday: "昨日总计", weekSummary: "本周总结", statTotalWeek: "本周总计", statDaysWorked: "工作天数", monthSummary: "本月总结", statTotalMonth: "本月总计", yearSummary: "年度总结", statTotalYear: "年度总计", btnPrint: "🖨️ 打印 / PDF", btnAllHistory: "📋 查看历史", btnAllExpensesHistory: "📋 查看费用", btnExportExcel: "📊 导出Excel", historyScreenTitle: "配送历史", expensesHistoryScreenTitle: "费用历史", btnBack: "← 返回", btnFilter: "筛选", exportSub: "文件名:", btnCancel: "取消", btnDownload: "下载", btnContinue: "继续", modalExcelTitle: "导出Excel", modalExcelDesc: "点击继续。", btnSuffix: "后缀", btnOverwrite: "覆盖", regExpenseTitle: "记录费用", regExpenseSub: "选择类型", optGas: "⛽ 汽油", optFood: "🍔 食物", btnAddExpense: "+ 添加费用", todayExpenses: "今日费用", statGasToday: "今日汽油", statFoodToday: "今日食物", weekExpenses: "本周费用", statGasWeek: "本周汽油", statFoodWeek: "本周食物", monthExpenses: "本月费用", statGasMonth: "本月汽油", statFoodMonth: "本月食物", chartTitle: "视觉余额", chartSub: "收入 vs 费用", chartOrdersTitle: "总订单", statOrdersToday: "今日", statOrdersWeek: "本周", statOrdersMonth: "本月", btnEditProfile: "⚙️ 编辑配置", modalConfirmTitle: "确认", btnAccept: "接受", printListTitle: "配送列表", thDate: "日期", thTime: "时间", thAmount: "金额", msgInvalidAmount: "无效金额", msgInvalidExpense: "无效金额", msgInvalidProfile: "需要姓名和证件", msgNoDataExport: "没有数据。", msgNoDeliveriesToday: "今日无配送", msgNoExpensesToday: "今日无费用", msgNoDeliveriesHistory: "无配送记录", msgNoExpensesHistory: "无费用记录", confirmDeleteDelivery: "删除配送？", confirmDeleteExpense: "删除费用？", splashSub: "加载中...", msgDownloadInfo: "📁 已保存。", msgBioSuccess: "锁定已启用。", msgBioError: "错误。", msgBioUnauth: "未验证。" },
+            ru: { loginSub: "Войдите, чтобы продолжить", loginEmailPh: "Электронная почта", loginPassPh: "Пароль", btnLogin: "Войти", btnRegister: "Создать аккаунт", expiredTitle: "⚠️ Лицензия истекла", expiredSub: "Ваша лицензия закончилась.", btnLogout: "Выйти", configTitle: "Настройки профиля", configSub: "Введите ваши данные", placeholderNombre: "Имя", placeholderApellido: "Фамилия", placeholderCedula: "Документ", startWeekLabel: "Начало недели:", optMon: "Понедельник", optTue: "Вторник", optWed: "Среда", optThu: "Четверг", optFri: "Пятница", optSat: "Суббота", optSun: "Воскресенье", securityLabel: "Безопасность:", btnEnableBio: "🔒 Включить блокировку", btnDisableBio: "🔓 Отключить блокировку", authTitle: "Добро пожаловать", authSub: "Коснитесь отпечатка", btnSaveConfig: "Сохранить настройки", tabDeliveries: "📦 Доставки", tabExpenses: "⛽ Расходы", tabChart: "📊 График", regDeliveryTitle: "Записать доставку", regDeliverySub: "Введите сумму", placeholderMonto: "Сумма ($)", placeholderPedido: "Номер заказа (необяз.)", placeholderNota: "Примечание (необяз.)", btnAddDelivery: "+ Добавить доставку", btnEditDelivery: "Изменить Сохранить", btnCancelEdit: "Отмена", todaySummary: "Итоги сегодня", statDeliveries: "Доставки", statTotalToday: "Всего сегодня", yesterdaySummary: "Итоги вчера", statDeliveriesYesterday: "Доставки", statTotalYesterday: "Всего вчера", weekSummary: "Итоги недели", statTotalWeek: "Всего за неделю", statDaysWorked: "Отработано дней", monthSummary: "Итоги месяца", statTotalMonth: "Всего за месяц", yearSummary: "Итоги года", statTotalYear: "Всего за год", btnPrint: "🖨️ Печать / PDF", btnAllHistory: "📋 Вся история", btnAllExpensesHistory: "📋 Все расходы", btnExportExcel: "📊 Экспорт в Excel", historyScreenTitle: "История доставок", expensesHistoryScreenTitle: "История расходов", btnBack: "← Назад", btnFilter: "Фильтр", exportSub: "Имя файла:", btnCancel: "Отмена", btnDownload: "Скачать", btnContinue: "Продолжить", modalExcelTitle: "Экспорт в Excel", modalExcelDesc: "Нажмите продолжить.", btnSuffix: "Суффикс", btnOverwrite: "Перезаписать", regExpenseTitle: "Записать расход", regExpenseSub: "Выберите тип", optGas: "⛽ Бензин", optFood: "🍔 Еда", btnAddExpense: "+ Добавить расход", todayExpenses: "Расходы сегодня", statGasToday: "Бензин сегодня", statFoodToday: "Еда сегодня", weekExpenses: "Расходы за неделю", statGasWeek: "Бензин (нед)", statFoodWeek: "Еда (нед)", monthExpenses: "Расходы за месяц", statGasMonth: "Бензин (мес)", statFoodMonth: "Еда (мес)", chartTitle: "Визуальный баланс", chartSub: "Доходы против расходов", chartOrdersTitle: "Всего заказов", statOrdersToday: "Сегодня", statOrdersWeek: "Неделя", statOrdersMonth: "Месяц", btnEditProfile: "⚙️ Изменить профиль", modalConfirmTitle: "Подтверждение", btnAccept: "Принять", printListTitle: "Список доставок", thDate: "Дата", thTime: "Время", thAmount: "Сумма", msgInvalidAmount: "Неверная сумма", msgInvalidExpense: "Неверная сумма", msgInvalidProfile: "Имя и ID обязательны", msgNoDataExport: "Нет данных.", msgNoDeliveriesToday: "Сегодня нет доставок", msgNoExpensesToday: "Сегодня нет расходов", msgNoDeliveriesHistory: "Нет истории доставок", msgNoExpensesHistory: "Нет истории расходов", confirmDeleteDelivery: "Удалить доставку?", confirmDeleteExpense: "Удалить расход?", splashSub: "Загрузка...", msgDownloadInfo: "📁 Сохранено.", msgBioSuccess: "Блокировка включена.", msgBioError: "Ошибка.", msgBioUnauth: "Не подтверждено." },
+            ar: { loginSub: "تسجيل الدخول للمتابعة", loginEmailPh: "البريد الإلكتروني", loginPassPh: "كلمة المرور", btnLogin: "تسجيل الدخول", btnRegister: "إنشاء حساب", expiredTitle: "⚠️ انتهت صلاحية الترخيص", expiredSub: "انتهت رخصتك.", btnLogout: "تسجيل الخروج", configTitle: "إعداد الملف الشخصي", configSub: "أدخل بياناتك", placeholderNombre: "الاسم", placeholderApellido: "اللقب", placeholderCedula: "رقم الهوية", startWeekLabel: "يبدأ الأسبوع في:", optMon: "الإثنين", optTue: "الثلاثاء", optWed: "الأربعاء", optThu: "الخميس", optFri: "الجمعة", optSat: "السبت", optSun: "الأحد", securityLabel: "الحماية:", btnEnableBio: "🔒 تفعيل القفل", btnDisableBio: "🔓 إلغاء القفل", authTitle: "مرحباً بك", authSub: "المس البصمة للبدء", btnSaveConfig: "حفظ الإعدادات", tabDeliveries: "📦 التوصيلات", tabExpenses: "⛽ المصروفات", tabChart: "📊 الرسم البياني", regDeliveryTitle: "تسجيل توصيل", regDeliverySub: "أدخل المبلغ", placeholderMonto: "المبلغ ($)", placeholderPedido: "رقم الطلب (اختياري)", placeholderNota: "ملاحظة (اختياري)", btnAddDelivery: "+ إضافة توصيل", btnEditDelivery: "تعديل حفظ", btnCancelEdit: "إلغاء", todaySummary: "ملخص اليوم", statDeliveries: "التوصيلات", statTotalToday: "الإجمالي اليوم", yesterdaySummary: "ملخص الأمس", statDeliveriesYesterday: "التوصيلات", statTotalYesterday: "الإجمالي أمس", weekSummary: "الملخص الأسبوعي", statTotalWeek: "إجمالي الأسبوع", statDaysWorked: "أيام العمل", monthSummary: "الملخص الشهري", statTotalMonth: "إجمالي الشهر", yearSummary: "الملخص السنوي", statTotalYear: "إجمالي السنة", btnPrint: "🖨️ طباعة / PDF", btnAllHistory: "📋 عرض السجل", btnAllExpensesHistory: "📋 عرض المصروفات", btnExportExcel: "📊 تصدير إلى Excel", historyScreenTitle: "سجل التوصيلات", expensesHistoryScreenTitle: "سجل المصروفات", btnBack: "← رجوع", btnFilter: "تصفية", exportSub: "اسم الملف:", btnCancel: "إلغاء", btnDownload: "تحميل", btnContinue: "متابعة", modalExcelTitle: "تصدير Excel", modalExcelDesc: "اضغط متابعة للحفظ.", btnSuffix: "إضافة لاحقة", btnOverwrite: "استبدال", regExpenseTitle: "تسجيل مصروف", regExpenseSub: "حدد النوع", optGas: "⛽ بنزين", optFood: "🍔 طعام", btnAddExpense: "+ إضافة مصروف", todayExpenses: "مصروفات اليوم", statGasToday: "بنزين اليوم", statFoodToday: "طعام اليوم", weekExpenses: "المصروفات الأسبوعية", statGasWeek: "بنزين الأسبوع", statFoodWeek: "طعام الأسبوع", monthExpenses: "المصروفات الشهرية", statGasMonth: "بنزين الشهر", statFoodMonth: "طعام الشهر", chartTitle: "الرصيد المرئي", chartSub: "الأرباح مقابل المصروفات", chartOrdersTitle: "إجمالي الطلبات", statOrdersToday: "اليوم", statOrdersWeek: "الأسبوع", statOrdersMonth: "الشهر", btnEditProfile: "⚙️ تعديل الملف الشخصي", modalConfirmTitle: "تأكيد", btnAccept: "موافق", printListTitle: "قائمة التوصيلات", thDate: "التاريخ", thTime: "الوقت", thAmount: "المبلغ", msgInvalidAmount: "مبلغ غير صالح", msgInvalidExpense: "مبلغ غير صالح", msgInvalidProfile: "الاسم ورقم الهوية مطلوبان", msgNoDataExport: "لا توجد بيانات.", msgNoDeliveriesToday: "لا توجد توصيلات اليوم", msgNoExpensesToday: "لا توجد مصروفات اليوم", msgNoDeliveriesHistory: "لا يوجد سجل توصيلات", msgNoExpensesHistory: "لا يوجد سجل مصروفات", confirmDeleteDelivery: "هل تريد حذف التوصيل؟", confirmDeleteExpense: "هل تريد حذف المصروف؟", splashSub: "جاري التحميل...", msgDownloadInfo: "📁 تم الحفظ.", msgBioSuccess: "تم تفعيل القفل.", msgBioError: "خطأ.", msgBioUnauth: "لم يتم التحقق." }
         };
 
-        const langNames = { es: 'Español', en: 'English', pt: 'Português', fr: 'Français', de: 'Deutsch', it: 'Italiano', ja: '日本語', zh: '中文' };
+        const langNames = { es: 'Español', en: 'English', pt: 'Português', fr: 'Français', de: 'Deutsch', it: 'Italiano', ja: '日本語', zh: '中文', ru: 'Русский', ar: 'العربية' };
         let currentLang = localStorage.getItem('appLang') || 'es';
         function t(key) { return translations[currentLang]?.[key] || translations['es'][key] || key; }
 
@@ -931,6 +950,13 @@
             document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.getAttribute('data-i18n-ph')); });
             const btn = document.getElementById('langDropdownBtn');
             if(btn) btn.innerHTML = `${langNames[currentLang]} ▾`;
+            
+            // Adaptación básica para RTL si el idioma es árabe
+            if (currentLang === 'ar') {
+                document.body.style.direction = "rtl";
+            } else {
+                document.body.style.direction = "ltr";
+            }
         }
 
         function toggleLangMenu() {
@@ -954,7 +980,7 @@
 
         let editandoIndex = null; let editandoGastoIndex = null; let balanceChart = null;
         let accionPendienteConfirmacion = null; let archivoPendienteExportar = '';
-        let tipoExportacionGlobal = 'deliveries'; // Control de estado para exportación dual
+        let tipoExportacionGlobal = 'deliveries'; 
         let soundEnabled = localStorage.getItem('soundEnabled') !== 'false';
         
         window.addEventListener('DOMContentLoaded', () => {
@@ -1148,17 +1174,17 @@
         function cerrarHistorialGastos() { document.getElementById('historialGastosScreen').style.display = 'none'; }
         function renderizarHistorialGastos() {
             const listaEl = document.getElementById('listaHistorialGastos'); listaEl.innerHTML = '';
-            const gastosValidos = window.datos.filter(d => d.tipo === 'gasto' && d.monto > 0);
+            const gastosValidos = window.datos.filter(d => (d.tipo === 'gasto' || d.tipoGasto !== undefined) && d.monto > 0);
             if (gastosValidos.length === 0) { listaEl.innerHTML = `<div class="empty-msg">${t('msgNoExpensesHistory')}</div>`; return; }
             
             gastosValidos.sort((a, b) => b.timestamp - a.timestamp).forEach(d => {
                 let etiqueta = d.tipoGasto === 'gasolina' ? (currentLang === 'es' ? '⛽ Gasolina' : (currentLang==='en'?'⛽ Gas':t('optGas'))) : (currentLang === 'es' ? '🍔 Comida' : (currentLang==='en'?'🍔 Food':t('optFood')));
+                if (!d.tipoGasto) etiqueta = "General";
                 const dateLbl = t('thDate') || 'Fecha'; const timeLbl = t('thTime') || 'Hora';
                 listaEl.innerHTML += `<li><div class="delivery-info"><strong style="color: #ef4444;">${etiqueta}: $${d.monto.toFixed(2)}</strong><span>${dateLbl}: ${obtenerFechaSegura(d)} | ${timeLbl}: ${d.hora}</span></div></li>`;
             });
         }
 
-        // FUNCIÓN MEJORADA: Imprimir (Acepta Entregas o Gastos)
         function imprimir(tipo) {
             const historyBody = document.getElementById('printHistoryBody');
             historyBody.innerHTML = '';
@@ -1176,7 +1202,7 @@
                     });
                 }
             } else {
-                const validos = window.datos.filter(d => d.tipo === 'gasto' && d.monto > 0);
+                const validos = window.datos.filter(d => (d.tipo === 'gasto' || d.tipoGasto !== undefined) && d.monto > 0);
                 document.getElementById('printTotalDeliveries').innerText = `Total Gastos: ${validos.length}`;
                 document.getElementById('printHeaderTitle').innerText = currentLang === 'es' ? "Listado de Gastos" : "Expenses List";
                 
@@ -1185,6 +1211,7 @@
                 } else {
                     [...validos].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).forEach(d => { 
                         let etiqueta = d.tipoGasto === 'gasolina' ? (currentLang === 'es' ? 'Gasolina' : 'Gas') : (currentLang === 'es' ? 'Comida' : 'Food');
+                        if(!d.tipoGasto) etiqueta = "General";
                         historyBody.innerHTML += `<tr><td>${obtenerFechaSegura(d)}</td><td>${d.hora}</td><td>$${d.monto.toFixed(2)} (${etiqueta})</td></tr>`; 
                     });
                 }
@@ -1396,21 +1423,23 @@
                 const [y, m] = d.fecha.split('-');
                 if (parseInt(y) === currentYear && (parseInt(m) - 1) === currentMonth) {
                     if (d.tipo !== 'gasto' && d.monto > 0) sumaMes += d.monto;
-                    if (d.tipo === 'gasto') { if (d.tipoGasto === 'gasolina') gasMes += d.monto; if (d.tipoGasto === 'comida') comidaMes += d.monto; }
+                    if ((d.tipo === 'gasto' || d.tipoGasto !== undefined)) { 
+                        if (d.tipoGasto === 'gasolina') gasMes += d.monto; 
+                        if (d.tipoGasto === 'comida') comidaMes += d.monto; 
+                    }
                 }
             });
             balanceChart.data.labels = currentLang === 'es' ? ['Ganancias', 'Gasolina', 'Comidas'] : ['Earnings', 'Gas', 'Food'];
             balanceChart.data.datasets[0].data = [sumaMes, gasMes, comidaMes]; balanceChart.update();
         }
 
-        // FUNCION MEJORADA: Se separó la lógica de impresión dinámica hacia imprimir(tipo)
         function actualizarInterfaz() {
             if (!window.perfil) return;
             document.getElementById('printNombreCompleto').innerText = `${window.perfil.nombre} ${window.perfil.apellido}`.trim(); 
             document.getElementById('printDocIdentidad').innerText = `ID: ${window.perfil.cedula}`;
             
             const hoyObj = new Date(); const hoyStr = formatearFechaISO(hoyObj);
-            const localeMap = { es: 'es-ES', en: 'en-US', pt: 'pt-BR', fr: 'fr-FR', de: 'de-DE', it: 'it-IT', ja: 'ja-JP', zh: 'zh-CN' };
+            const localeMap = { es: 'es-ES', en: 'en-US', pt: 'pt-BR', fr: 'fr-FR', de: 'de-DE', it: 'it-IT', ja: 'ja-JP', zh: 'zh-CN', ru: 'ru-RU', ar: 'ar-SA' };
             const localeStr = localeMap[currentLang] || 'es-ES';
             const fechaTextoLegible = hoyObj.toLocaleDateString(localeStr, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
             document.getElementById('fechaHoySub').innerText = fechaTextoLegible; document.getElementById('fechaGastoHoySub').innerText = fechaTextoLegible;
@@ -1449,7 +1478,11 @@
 
             const gastosHoyIndex = []; let gasHoyTotal = 0; let comidaHoyTotal = 0;
             window.datos.forEach((d, idx) => {
-                if (d.fecha === hoyStr && d.tipo === 'gasto') { gastosHoyIndex.push(idx); if (d.tipoGasto === 'gasolina') gasHoyTotal += d.monto; if (d.tipoGasto === 'comida') comidaHoyTotal += d.monto; }
+                if (d.fecha === hoyStr && (d.tipo === 'gasto' || d.tipoGasto !== undefined)) { 
+                    gastosHoyIndex.push(idx); 
+                    if (d.tipoGasto === 'gasolina') gasHoyTotal += d.monto; 
+                    if (d.tipoGasto === 'comida') comidaHoyTotal += d.monto; 
+                }
             });
             document.getElementById('totalGasHoy').innerText = `$${gasHoyTotal.toFixed(2)}`; document.getElementById('totalComidaHoy').innerText = `$${comidaHoyTotal.toFixed(2)}`;
 
@@ -1459,6 +1492,7 @@
                 const gastosSortedHoy = [...gastosHoyIndex].sort((i, j) => (window.datos[j].timestamp || 0) - (window.datos[i].timestamp || 0));
                 gastosSortedHoy.forEach(idx => {
                     const g = window.datos[idx]; let etiqueta = g.tipoGasto === 'gasolina' ? t('optGas') : t('optFood');
+                    if(!g.tipoGasto) etiqueta = "General";
                     const editTxt = t('btnEditDelivery').split(' ')[0]; const delTxt = currentLang === 'es' ? 'Borrar' : 'Del';
                     const dateLbl = t('thDate'); const timeLbl = t('thTime');
                     listaGastos.innerHTML += `<li><div class="delivery-info"><strong>${etiqueta}: $${g.monto.toFixed(2)}</strong><span>${dateLbl}: ${obtenerFechaSegura(g)} | ${timeLbl}: ${g.hora}</span></div>
@@ -1473,7 +1507,7 @@
             document.getElementById('rangoSemanaSub').innerText = `(${formatDDMMYYYY(startOfWeek)} - ${formatDDMMYYYY(endOfWeek)})`;
 
             const entregasSemana = window.datos.filter(d => {
-                if (d.tipo === 'gasto' || d.monto <= 0) return false;
+                if ((d.tipo === 'gasto' || d.tipoGasto !== undefined) || d.monto <= 0) return false;
                 const [y, m, day] = d.fecha.split('-'); const dDate = new Date(y, m - 1, day); return dDate >= startOfWeek && dDate <= endOfWeek;
             });
             document.getElementById('totalSemana').innerText = `$${entregasSemana.reduce((a, b) => a + b.monto, 0).toFixed(2)}`;
@@ -1485,7 +1519,7 @@
             document.getElementById('mesActualSub').innerText = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1);
 
             const entregasMes = window.datos.filter(d => {
-                if (d.tipo === 'gasto' || d.monto <= 0) return false; const [y, m] = d.fecha.split('-'); return parseInt(y) === currentYear && (parseInt(m) - 1) === currentMonth;
+                if ((d.tipo === 'gasto' || d.tipoGasto !== undefined) || d.monto <= 0) return false; const [y, m] = d.fecha.split('-'); return parseInt(y) === currentYear && (parseInt(m) - 1) === currentMonth;
             });
             document.getElementById('totalMes').innerText = `$${entregasMes.reduce((a, b) => a + b.monto, 0).toFixed(2)}`;
             document.getElementById('diasMes').innerText = new Set(entregasMes.map(d => d.fecha)).size;
@@ -1502,8 +1536,8 @@
                 const grupo = gruposSemana[weekId]; desgloseSemanasEl.innerHTML += `<div class="breakdown-item"><span>(${formatDDMMYYYY(grupo.minDate)} - ${formatDDMMYYYY(grupo.satDate)}):</span><strong>$${grupo.total.toFixed(2)}</strong></div>`;
             });
 
-            const yearLbl = currentLang === 'es' ? 'Año' : 'Year'; document.getElementById('anioActualSub').innerText = `${yearLbl} ${currentYear}`;
-            const entregasAnio = window.datos.filter(d => { if (d.tipo === 'gasto' || d.monto <= 0) return false; const [y] = d.fecha.split('-'); return parseInt(y) === currentYear; });
+            const yearLbl = currentLang === 'es' ? 'Año' : (currentLang === 'ru' ? 'Год' : (currentLang === 'ar' ? 'السنة' : 'Year')); document.getElementById('anioActualSub').innerText = `${yearLbl} ${currentYear}`;
+            const entregasAnio = window.datos.filter(d => { if ((d.tipo === 'gasto' || d.tipoGasto !== undefined) || d.monto <= 0) return false; const [y] = d.fecha.split('-'); return parseInt(y) === currentYear; });
             document.getElementById('totalAnio').innerText = `$${entregasAnio.reduce((a, b) => a + b.monto, 0).toFixed(2)}`;
             document.getElementById('diasAnio').innerText = new Set(entregasAnio.map(d => d.fecha)).size;
 
@@ -1511,11 +1545,11 @@
             const mesesMap = {}; entregasAnio.forEach(d => { const [, mStr] = d.fecha.split('-'); const mIndex = parseInt(mStr, 10) - 1; mesesMap[mIndex] = (mesesMap[mIndex] || 0) + d.monto; });
             Object.keys(mesesMap).sort((a,b) => a - b).forEach(mIndex => { desgloseMesesEl.innerHTML += `<div class="breakdown-item"><span>Mes ${parseInt(mIndex)+1}:</span><strong>$${mesesMap[mIndex].toFixed(2)}</strong></div>`; });
 
-            const gastosSemana = window.datos.filter(d => { if (d.tipo !== 'gasto') return false; const [y, m, day] = d.fecha.split('-'); const dDate = new Date(y, m - 1, day); return dDate >= startOfWeek && dDate <= endOfWeek; });
+            const gastosSemana = window.datos.filter(d => { if (d.tipo !== 'gasto' && d.tipoGasto === undefined) return false; const [y, m, day] = d.fecha.split('-'); const dDate = new Date(y, m - 1, day); return dDate >= startOfWeek && dDate <= endOfWeek; });
             document.getElementById('totalGasSemana').innerText = `$${gastosSemana.filter(d=>d.tipoGasto==='gasolina').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
             document.getElementById('totalComidaSemana').innerText = `$${gastosSemana.filter(d=>d.tipoGasto==='comida').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
 
-            const gastosMes = window.datos.filter(d => { if (d.tipo !== 'gasto') return false; const [y, m] = d.fecha.split('-'); return parseInt(y) === currentYear && (parseInt(m) - 1) === currentMonth; });
+            const gastosMes = window.datos.filter(d => { if (d.tipo !== 'gasto' && d.tipoGasto === undefined) return false; const [y, m] = d.fecha.split('-'); return parseInt(y) === currentYear && (parseInt(m) - 1) === currentMonth; });
             document.getElementById('totalGasMes').innerText = `$${gastosMes.filter(d=>d.tipoGasto==='gasolina').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
             document.getElementById('totalComidaMes').innerText = `$${gastosMes.filter(d=>d.tipoGasto==='comida').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
 
@@ -1535,7 +1569,6 @@
             window.addEventListener('DOMContentLoaded', () => { const btn = document.getElementById('btnTheme'); if(btn) btn.textContent = '☀️'; });
         }
 
-        // FUNCIÓN MEJORADA: Opciones Duales (Deliveries / Gastos)
         function mostrarOpcionesExportar(tipo) { 
             tipoExportacionGlobal = tipo;
             if(tipo === 'deliveries') {
@@ -1561,7 +1594,7 @@
             tipoExportacionGlobal = tipo;
             const validos = tipo === 'deliveries' 
                 ? window.datos.filter(d => d.tipo !== 'gasto' && d.monto > 0)
-                : window.datos.filter(d => d.tipo === 'gasto' && d.monto > 0);
+                : window.datos.filter(d => (d.tipo === 'gasto' || d.tipoGasto !== undefined) && d.monto > 0);
 
             if (validos.length === 0) { 
                 mostrarMensaje(tipo === 'deliveries' ? 'deliveryAlerta' : 'gastoAlerta', t('msgNoDataExport')); 
@@ -1611,9 +1644,9 @@
                 csvContent = `${headerDate},${headerTime},${headerAmount},Pedido,Nota\n`;
                 validos.forEach(d => { csvContent += `${obtenerFechaSegura(d)},${d.hora},${d.monto},${d.numPedido ? d.numPedido.replace(/,/g, ' ') : ''},${d.nota ? d.nota.replace(/,/g, ' ') : ''}\n`; });
             } else {
-                const validos = window.datos.filter(d => d.tipo === 'gasto' && d.monto > 0);
+                const validos = window.datos.filter(d => (d.tipo === 'gasto' || d.tipoGasto !== undefined) && d.monto > 0);
                 csvContent = `${headerDate},${headerTime},${headerAmount},Categoria\n`;
-                validos.forEach(d => { csvContent += `${obtenerFechaSegura(d)},${d.hora},${d.monto},${d.tipoGasto}\n`; });
+                validos.forEach(d => { csvContent += `${obtenerFechaSegura(d)},${d.hora},${d.monto},${d.tipoGasto || 'General'}\n`; });
             }
 
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob);
