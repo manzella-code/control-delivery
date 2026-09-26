@@ -4,12 +4,12 @@
     <link rel="manifest" href="manifest.json">
     <script>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js?v=1.60.1');
+        navigator.serviceWorker.register('sw.js?v=1.60.2');
       }
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.60.1</title>
+    <title>Control Delivery v1.60.2</title>
     <meta name="theme-color" content="#10b981">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -68,7 +68,6 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-        // MEJORA: Importación de query y orderBy para delegar el ordenamiento a Firebase
         import { getFirestore, doc, getDoc, setDoc, collection, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -131,7 +130,6 @@
                         }
                     }
 
-                    // MEJORA: Descargar transacciones ya ordenadas de mayor a menor desde la Base de Datos
                     const transRef = collection(db, "usuarios", user.uid, "transacciones");
                     const q = query(transRef, orderBy("timestamp", "desc"));
                     let transQuery = await getDocs(q);
@@ -155,13 +153,11 @@
             if(window.updateMainUI) window.updateMainUI();
         });
 
-        // FUNCIONES CLOUD DE DATOS
         window.cloudGuardarTransaccion = async (nuevoRegistro) => {
             if(!window.authUser) return;
             try {
                 const docRef = await addDoc(collection(db, "usuarios", window.authUser.uid, "transacciones"), nuevoRegistro);
                 nuevoRegistro.firestoreId = docRef.id;
-                // Como Firebase los traería invertidos la proxima carga, en tiempo real lo ponemos de primero
                 window.datos.unshift(nuevoRegistro); 
                 actualizarInterfaz();
             } catch(e) { console.error("Error guardando en nube:", e); }
@@ -253,7 +249,6 @@
             document.getElementById('adminTotalAnio').innerText = "$0.00";
 
             try {
-                // MEJORA: Consulta ordenada directamente en Firestore
                 const transRef = collection(db, "usuarios", uidCliente, "transacciones");
                 const q = query(transRef, orderBy("timestamp", "desc"));
                 const transSnap = await getDocs(q);
@@ -312,6 +307,7 @@
 
         window.cerrarAdminUserDetailScreen = () => { document.getElementById('adminUserDetailScreen').style.display = 'none'; };
 
+        // DESCARGA DE ADMIN (INCLUYE GASTOS Y DELIVERIES ORDENADOS CLARAMENTE)
         window.descargarRespaldoUsuario = async (uidCliente, emailCliente) => {
             try {
                 let nombreCompleto = "";
@@ -323,7 +319,10 @@
                     }
                 } catch(e) {}
 
-                const transSnap = await getDocs(collection(db, "usuarios", uidCliente, "transacciones"));
+                const transRef = collection(db, "usuarios", uidCliente, "transacciones");
+                const q = query(transRef, orderBy("timestamp", "desc"));
+                const transSnap = await getDocs(q);
+
                 if (transSnap.empty) { alert(`El usuario ${emailCliente} no tiene transacciones.`); return; }
                 
                 let csvContent = `Fecha,Hora,Tipo,Monto,Pedido,Nota\n`;
@@ -453,6 +452,7 @@
         .print-table th, .print-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         .print-table th { background-color: #f4f6f8; color: #333; }
 
+        /* MEJORA PWA IMPRESIÓN: Adaptado para imprimir desde cualquier pestaña visible */
         @media print {
             body { background: white; padding: 0; margin: 0; max-width: 100%; color: #000; }
             #printHeader { display: block; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; text-align: right; }
@@ -460,8 +460,9 @@
             #printHeader p { margin: 2px 0 0 0; font-size: 0.9rem; color: #333; }
             #printHistory { display: block; margin-top: 30px; page-break-before: always; }
             .card { box-shadow: none; border: 1px solid #ddd; margin-bottom: 15px; page-break-inside: avoid; background: white !important; color: #000 !important; }
-            .tab-container, #formCard, button, .actions, .btn-link, .header-buttons, .tab-content { display: none !important; }
-            #tabDeliveries { display: block !important; }
+            
+            .tab-container, #formCard, #formGastoCard, button, .actions, .btn-link, .header-buttons, .tab-content { display: none !important; }
+            .tab-content.active { display: block !important; }
             ul { max-height: none; overflow: visible; }
         }
     </style>
@@ -572,7 +573,6 @@
                 <button class="btn-secondary" style="width: auto; padding: 8px 12px; margin: 0;" onclick="cerrarHistorialTotal()" data-i18n="btnBack">← Volver</button>
             </div>
             
-            <!-- MEJORA: Resúmenes Globales Estructurados sin selectores de fecha manuales -->
             <div id="historialResumenContainer"></div>
             
             <div class="card">
@@ -595,12 +595,11 @@
     </div>
 
     <div class="version-badge">
-        <span>Versión 1.60.1</span>
+        <span>Versión 1.60.2</span>
         <div class="header-buttons">
             <div class="custom-dropdown">
                 <button id="langDropdownBtn" class="custom-dropdown-btn" onclick="toggleLangMenu()">Español ▾</button>
                 <div id="langDropdownMenu" class="custom-dropdown-menu">
-                    <!-- IDIOMAS AMPLIADOS -->
                     <div class="custom-dropdown-item" onclick="cambiarIdioma('es')">Español</div>
                     <div class="custom-dropdown-item" onclick="cambiarIdioma('en')">English</div>
                     <div class="custom-dropdown-item" onclick="cambiarIdioma('pt')">Português</div>
@@ -666,7 +665,6 @@
                 <div id="deliveryExito" class="app-success"></div>
                 
                 <input type="number" id="monto" placeholder="Monto ($)" step="0.01" inputmode="decimal" data-i18n-ph="placeholderMonto" style="margin-bottom: 8px;">
-                <!-- NUEVO CAMPO: NÚMERO DE PEDIDO -->
                 <input type="text" id="numPedido" placeholder="Número de pedido (opcional)" data-i18n-ph="placeholderPedido" style="margin-bottom: 8px;">
                 <input type="text" id="notaDelivery" placeholder="Nota (opcional)" data-i18n-ph="placeholderNota">
                 
@@ -753,15 +751,15 @@
             </div>
 
             <button class="btn-secondary" onclick="abrirHistorialTotal()" data-i18n="btnAllHistory" style="margin-bottom: 10px;">📋 Ver Todos los Movimientos</button>
-            <button class="btn-print" onclick="window.print()" data-i18n="btnPrint" style="margin-bottom: 10px;">🖨️ Imprimir / Guardar PDF</button>
-            <button class="btn-excel" id="btnShowExport" onclick="mostrarOpcionesExportar()" data-i18n="btnExportExcel">📊 Exportar a Excel</button>
+            <button class="btn-print" onclick="imprimir('deliveries')" data-i18n="btnPrint" style="margin-bottom: 10px;">🖨️ Imprimir / Guardar PDF</button>
+            <button class="btn-excel" id="btnShowExport" onclick="mostrarOpcionesExportar('deliveries')" data-i18n="btnExportExcel">📊 Exportar a Excel</button>
             
             <div id="opcionesExportar" class="card" style="display: none; margin-bottom: 15px; background: var(--card-bg); border: 1px solid var(--border-color);">
                 <span class="subtitle" data-i18n="exportSub">Escribe el nombre que deseas para el archivo:</span>
                 <input type="text" id="nombreReporteInput" value="reporte_deliveries" placeholder="Nombre del archivo">
                 <div style="display: flex; gap: 10px; margin-top: 10px;">
-                    <button class="btn-secondary" style="margin-top:0;" onclick="cancelarExportar()" data-i18n="btnCancel">Cancelar</button>
-                    <button class="btn-excel" style="margin-top:0; margin-bottom:0;" onclick="confirmarExportarExcel()" data-i18n="btnDownload">Descargar</button>
+                    <button class="btn-secondary" style="margin-top:0;" onclick="cancelarExportar('deliveries')" data-i18n="btnCancel">Cancelar</button>
+                    <button class="btn-excel" style="margin-top:0; margin-bottom:0;" onclick="confirmarExportarExcel('deliveries')" data-i18n="btnDownload">Descargar</button>
                 </div>
             </div>
         </div>
@@ -826,7 +824,20 @@
                 </div>
             </div>
 
-            <button class="btn-secondary" onclick="abrirHistorialGastos()" data-i18n="btnAllExpensesHistory" style="margin-bottom: 15px;">📋 Ver Todos los Gastos</button>
+            <button class="btn-secondary" onclick="abrirHistorialGastos()" data-i18n="btnAllExpensesHistory" style="margin-bottom: 10px;">📋 Ver Todos los Gastos</button>
+            
+            <!-- NUEVOS BOTONES DE IMPRIMIR Y EXPORTAR EN PESTAÑA GASTOS -->
+            <button class="btn-print" onclick="imprimir('gastos')" data-i18n="btnPrint" style="margin-bottom: 10px;">🖨️ Imprimir / Guardar PDF</button>
+            <button class="btn-excel" id="btnShowExportGastos" onclick="mostrarOpcionesExportar('gastos')" data-i18n="btnExportExcel">📊 Exportar a Excel</button>
+            
+            <div id="opcionesExportarGastos" class="card" style="display: none; margin-bottom: 15px; background: var(--card-bg); border: 1px solid var(--border-color);">
+                <span class="subtitle" data-i18n="exportSub">Escribe el nombre que deseas para el archivo:</span>
+                <input type="text" id="nombreReporteInputGastos" value="reporte_gastos" placeholder="Nombre del archivo">
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button class="btn-secondary" style="margin-top:0;" onclick="cancelarExportar('gastos')" data-i18n="btnCancel">Cancelar</button>
+                    <button class="btn-excel" style="margin-top:0; margin-bottom:0;" onclick="confirmarExportarExcel('gastos')" data-i18n="btnDownload">Descargar</button>
+                </div>
+            </div>
         </div>
 
         <!-- PESTAÑA 3: GRÁFICO -->
@@ -885,13 +896,14 @@
         </div>
     </div>
 
+    <!-- SECCIÓN PARA IMPRESIÓN DINÁMICA -->
     <div id="printHeader">
         <h3 id="printNombreCompleto"></h3>
         <p id="printDocIdentidad"></p>
         <p id="printTotalDeliveries"></p>
     </div>
     <div id="printHistory">
-        <h2 style="margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;" data-i18n="printListTitle">Listado de Todas las Transacciones</h2>
+        <h2 id="printHeaderTitle" style="margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Listado de Registros</h2>
         <table class="print-table">
             <thead><tr><th data-i18n="thDate">Fecha</th><th data-i18n="thTime">Hora</th><th data-i18n="thAmount">Monto</th></tr></thead>
             <tbody id="printHistoryBody"></tbody>
@@ -900,7 +912,6 @@
 
     <script>
         const translations = {
-            // Se actualizó "btnEditDelivery" a "Editar Cambios" para que el split genere el botón "Editar" en la interfaz
             es: { loginSub: "Inicia sesión para continuar", loginEmailPh: "Correo electrónico", loginPassPh: "Contraseña", btnLogin: "Iniciar Sesión", btnRegister: "Crear Cuenta Nueva", expiredTitle: "⚠️ Licencia Vencida", expiredSub: "Tu periodo de prueba o licencia ha terminado.", btnLogout: "Cerrar Sesión", configTitle: "Configuración de Perfil", configSub: "Ingresa tus datos para los reportes", placeholderNombre: "Nombre", placeholderApellido: "Apellido", placeholderCedula: "Documento de Identidad", startWeekLabel: "Día que inicia tu semana laboral:", optMon: "Lunes", optTue: "Martes", optWed: "Miércoles", optThu: "Jueves", optFri: "Viernes", optSat: "Sábado", optSun: "Domingo", securityLabel: "Seguridad y Acceso:", btnEnableBio: "🔒 Activar Bloqueo", btnDisableBio: "🔓 Desactivar Bloqueo", authTitle: "Bienvenido", authSub: "Toca la huella para iniciar", btnSaveConfig: "Guardar Configuración", tabDeliveries: "📦 Deliveries", tabExpenses: "⛽ Gastos", tabChart: "📊 Gráfico", regDeliveryTitle: "Registrar Entrega", regDeliverySub: "Ingresa el monto del delivery realizado", placeholderMonto: "Monto ($)", placeholderPedido: "Número de pedido (opcional)", placeholderNota: "Nota (opcional)", btnAddDelivery: "+ Agregar Delivery", btnEditDelivery: "Editar Cambios", btnCancelEdit: "Cancelar Edición", todaySummary: "Resumen de Hoy", statDeliveries: "Deliveries", statTotalToday: "Total Hoy", yesterdaySummary: "Resumen de Ayer", statDeliveriesYesterday: "Deliveries", statTotalYesterday: "Total Ayer", weekSummary: "Resumen Semanal", statTotalWeek: "Total Semana", statDaysWorked: "Días Trabajados", monthSummary: "Resumen Mensual", statTotalMonth: "Total Mes", yearSummary: "Resumen Anual", statTotalYear: "Total Año", btnPrint: "🖨️ Imprimir / Guardar PDF", btnAllHistory: "📋 Ver Movimientos", btnAllExpensesHistory: "📋 Ver Todos los Gastos", btnExportExcel: "📊 Exportar a Excel", historyScreenTitle: "Historial de Deliveries", expensesHistoryScreenTitle: "Historial de Gastos", btnBack: "← Volver", btnFilter: "Filtrar", exportSub: "Escribe el nombre del archivo:", btnCancel: "Cancelar", btnDownload: "Descargar", btnContinue: "Continuar", modalExcelTitle: "Exportar a Excel", modalExcelDesc: "Presione continuar para grabar.", btnSuffix: "Agregar Sufijo", btnOverwrite: "Sobrescribir", regExpenseTitle: "Registrar Gasto", regExpenseSub: "Selecciona el tipo y monto", optGas: "⛽ Gasolina", optFood: "🍔 Comida / Snacks", btnAddExpense: "+ Agregar Gasto", todayExpenses: "Gastos de Hoy", statGasToday: "Gasolina Hoy", statFoodToday: "Comida Hoy", weekExpenses: "Gastos Semanales", statGasWeek: "Gasolina Sem", statFoodWeek: "Comida Sem", monthExpenses: "Gastos Mensuales", statGasMonth: "Gasolina Mes", statFoodMonth: "Comida Mes", chartTitle: "Balance Visual", chartSub: "Ganancias vs Gasolina y Comidas", chartOrdersTitle: "Total de Pedidos", statOrdersToday: "Hoy", statOrdersWeek: "Semana", statOrdersMonth: "Mes", btnEditProfile: "⚙️ Modificar Configuración", modalConfirmTitle: "Confirmación", btnAccept: "Aceptar", printListTitle: "Listado de Deliveries", thDate: "Fecha", thTime: "Hora", thAmount: "Monto", msgInvalidAmount: "Ingresa un monto válido", msgInvalidExpense: "Ingresa un monto válido", msgInvalidProfile: "Ingresa tu Nombre y Documento", msgNoDataExport: "No hay datos para exportar.", msgNoDeliveriesToday: "No hay deliveries hoy", msgNoExpensesToday: "No hay gastos hoy", msgNoDeliveriesHistory: "No hay deliveries", msgNoExpensesHistory: "No hay gastos", confirmDeleteDelivery: "¿Eliminar este delivery?", confirmDeleteExpense: "¿Eliminar este gasto?", splashSub: "Cargando aplicación...", msgDownloadInfo: "📁 Archivo guardado.", msgBioSuccess: "Huella configurada.", msgBioError: "Error de huella.", msgBioUnauth: "No se verificó." },
             en: { loginSub: "Sign in to continue", loginEmailPh: "Email", loginPassPh: "Password", btnLogin: "Login", btnRegister: "Create Account", expiredTitle: "⚠️ License Expired", expiredSub: "Your license has ended.", btnLogout: "Logout", configTitle: "Profile Setup", configSub: "Enter your info", placeholderNombre: "First Name", placeholderApellido: "Last Name", placeholderCedula: "ID", startWeekLabel: "Work week starts on:", optMon: "Monday", optTue: "Tuesday", optWed: "Wednesday", optThu: "Thursday", optFri: "Friday", optSat: "Saturday", optSun: "Sunday", securityLabel: "Security:", btnEnableBio: "🔒 Enable Lock", btnDisableBio: "🔓 Disable Lock", authTitle: "Welcome", authSub: "Tap fingerprint to start", btnSaveConfig: "Save Settings", tabDeliveries: "📦 Deliveries", tabExpenses: "⛽ Expenses", tabChart: "📊 Chart", regDeliveryTitle: "Register Delivery", regDeliverySub: "Enter amount", placeholderMonto: "Amount ($)", placeholderPedido: "Order Number (opt.)", placeholderNota: "Note (optional)", btnAddDelivery: "+ Add Delivery", btnEditDelivery: "Edit Changes", btnCancelEdit: "Cancel", todaySummary: "Today's Summary", statDeliveries: "Deliveries", statTotalToday: "Today Total", yesterdaySummary: "Yesterday's Summary", statDeliveriesYesterday: "Deliveries", statTotalYesterday: "Yesterday Total", weekSummary: "Weekly Summary", statTotalWeek: "Week Total", statDaysWorked: "Days Worked", monthSummary: "Monthly Summary", statTotalMonth: "Month Total", yearSummary: "Yearly Summary", statTotalYear: "Year Total", btnPrint: "🖨️ Print / PDF", btnAllHistory: "📋 View History", btnAllExpensesHistory: "📋 View Expenses", btnExportExcel: "📊 Export to Excel", historyScreenTitle: "Delivery History", expensesHistoryScreenTitle: "Expense History", btnBack: "← Back", btnFilter: "Filter", exportSub: "Enter file name:", btnCancel: "Cancel", btnDownload: "Download", btnContinue: "Continue", modalExcelTitle: "Export Excel", modalExcelDesc: "Press continue to save.", btnSuffix: "Add Suffix", btnOverwrite: "Overwrite", regExpenseTitle: "Register Expense", regExpenseSub: "Select type", optGas: "⛽ Gas", optFood: "🍔 Food", btnAddExpense: "+ Add Expense", todayExpenses: "Today's Expenses", statGasToday: "Gas Today", statFoodToday: "Food Today", weekExpenses: "Weekly Expenses", statGasWeek: "Gas Week", statFoodWeek: "Food Week", monthExpenses: "Monthly Expenses", statGasMonth: "Gas Month", statFoodMonth: "Food Month", chartTitle: "Visual Balance", chartSub: "Earnings vs Expenses", chartOrdersTitle: "Total Orders", statOrdersToday: "Today", statOrdersWeek: "Week", statOrdersMonth: "Month", btnEditProfile: "⚙️ Edit Profile", modalConfirmTitle: "Confirmation", btnAccept: "Accept", printListTitle: "List of Deliveries", thDate: "Date", thTime: "Time", thAmount: "Amount", msgInvalidAmount: "Valid amount required", msgInvalidExpense: "Valid amount required", msgInvalidProfile: "Name and ID required", msgNoDataExport: "No data to export.", msgNoDeliveriesToday: "No deliveries today", msgNoExpensesToday: "No expenses today", msgNoDeliveriesHistory: "No deliveries", msgNoExpensesHistory: "No expenses", confirmDeleteDelivery: "Delete delivery?", confirmDeleteExpense: "Delete expense?", splashSub: "Loading...", msgDownloadInfo: "📁 File saved.", msgBioSuccess: "Lock enabled.", msgBioError: "Lock error.", msgBioUnauth: "Unverified." },
             pt: { loginSub: "Faça login", loginEmailPh: "E-mail", loginPassPh: "Senha", btnLogin: "Entrar", btnRegister: "Criar Conta", expiredTitle: "⚠️ Licença Expirada", expiredSub: "Sua licença terminou.", btnLogout: "Sair", configTitle: "Configuração", configSub: "Insira seus dados", placeholderNombre: "Nome", placeholderApellido: "Sobrenome", placeholderCedula: "Documento", startWeekLabel: "A semana começa:", optMon: "Segunda", optTue: "Terça", optWed: "Quarta", optThu: "Quinta", optFri: "Sexta", optSat: "Sábado", optSun: "Domingo", securityLabel: "Segurança:", btnEnableBio: "🔒 Ativar Bloqueio", btnDisableBio: "🔓 Desativar Bloqueio", authTitle: "Bem-vindo", authSub: "Toque na digital", btnSaveConfig: "Salvar", tabDeliveries: "📦 Entregas", tabExpenses: "⛽ Despesas", tabChart: "📊 Gráfico", regDeliveryTitle: "Registrar Entrega", regDeliverySub: "Insira o valor", placeholderMonto: "Valor ($)", placeholderPedido: "Nº do Pedido (opc.)", placeholderNota: "Nota (opcional)", btnAddDelivery: "+ Adicionar Entrega", btnEditDelivery: "Editar Alterações", btnCancelEdit: "Cancelar", todaySummary: "Resumo de Hoje", statDeliveries: "Entregas", statTotalToday: "Total Hoje", yesterdaySummary: "Resumo de Ontem", statDeliveriesYesterday: "Entregas", statTotalYesterday: "Total Ontem", weekSummary: "Resumo Semanal", statTotalWeek: "Total Semana", statDaysWorked: "Dias Trabalhados", monthSummary: "Resumo Mensal", statTotalMonth: "Total Mês", yearSummary: "Resumo Anual", statTotalYear: "Total Ano", btnPrint: "🖨️ Imprimir / PDF", btnAllHistory: "📋 Ver Histórico", btnAllExpensesHistory: "📋 Ver Despesas", btnExportExcel: "📊 Exportar Excel", historyScreenTitle: "Histórico Entregas", expensesHistoryScreenTitle: "Histórico Despesas", btnBack: "← Voltar", btnFilter: "Filtrar", exportSub: "Nome do arquivo:", btnCancel: "Cancelar", btnDownload: "Baixar", btnContinue: "Continuar", modalExcelTitle: "Exportar Excel", modalExcelDesc: "Pressione continuar.", btnSuffix: "Sufixo", btnOverwrite: "Sobrescrever", regExpenseTitle: "Registrar Despesa", regExpenseSub: "Selecione o tipo", optGas: "⛽ Gasolina", optFood: "🍔 Comida", btnAddExpense: "+ Adicionar", todayExpenses: "Despesas Hoje", statGasToday: "Gasolina Hoje", statFoodToday: "Comida Hoje", weekExpenses: "Despesas Semana", statGasWeek: "Gasolina Sem", statFoodWeek: "Comida Sem", monthExpenses: "Despesas Mensais", statGasMonth: "Gasolina Mês", statFoodMonth: "Comida Mês", chartTitle: "Balanço Visual", chartSub: "Ganhos vs Despesas", chartOrdersTitle: "Total Pedidos", statOrdersToday: "Hoje", statOrdersWeek: "Semana", statOrdersMonth: "Mês", btnEditProfile: "⚙️ Editar Perfil", modalConfirmTitle: "Confirmação", btnAccept: "Aceitar", printListTitle: "Lista de Entregas", thDate: "Data", thTime: "Hora", thAmount: "Valor", msgInvalidAmount: "Valor inválido", msgInvalidExpense: "Valor inválido", msgInvalidProfile: "Nome e Documento necessários", msgNoDataExport: "Sem dados para exportar.", msgNoDeliveriesToday: "Sem entregas hoje", msgNoExpensesToday: "Sem despesas hoje", msgNoDeliveriesHistory: "Sem entregas", msgNoExpensesHistory: "Sem despesas", confirmDeleteDelivery: "Excluir entrega?", confirmDeleteExpense: "Excluir despesa?", splashSub: "Carregando...", msgDownloadInfo: "📁 Arquivo salvo.", msgBioSuccess: "Bloqueio ativado.", msgBioError: "Erro.", msgBioUnauth: "Não verificado." },
@@ -943,6 +954,7 @@
 
         let editandoIndex = null; let editandoGastoIndex = null; let balanceChart = null;
         let accionPendienteConfirmacion = null; let archivoPendienteExportar = '';
+        let tipoExportacionGlobal = 'deliveries'; // Control de estado para exportación dual
         let soundEnabled = localStorage.getItem('soundEnabled') !== 'false';
         
         window.addEventListener('DOMContentLoaded', () => {
@@ -1071,7 +1083,6 @@
             let totSem = 0, countSem = 0, totMes = 0, countMes = 0;
             let mesesData = {}; 
 
-            // CÁLCULO DE ESTADÍSTICAS GLOBAL PARA LA VISTA MAESTRA DE HISTORIAL
             deliveriesValidos.forEach(d => {
                 totAll += d.monto; countAll++;
                 if (d.fecha === hoyStr) { totHoy += d.monto; countHoy++; }
@@ -1095,7 +1106,6 @@
                 mesesData[monthKey].count++;
             });
 
-            // RENDERIZADO DEL BLOQUE DE RESÚMENES
             resumenCont.innerHTML = `
                 <div class="card" style="margin-bottom: 15px; padding-bottom: 5px;">
                     <div class="stat-grid" style="grid-template-columns: 1fr; margin-bottom:10px;">
@@ -1126,7 +1136,6 @@
                 </div>
             `;
             
-            // RENDERIZADO DE LA LISTA
             deliveriesValidos.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).forEach(d => {
                 const dateLbl = t('thDate') || 'Fecha'; const timeLbl = t('thTime') || 'Hora';
                 const pedidoHtml = d.numPedido ? `<br><span style="font-size: 0.85rem; color: #f59e0b;">Nº Pedido: ${d.numPedido}</span>` : '';
@@ -1147,6 +1156,40 @@
                 const dateLbl = t('thDate') || 'Fecha'; const timeLbl = t('thTime') || 'Hora';
                 listaEl.innerHTML += `<li><div class="delivery-info"><strong style="color: #ef4444;">${etiqueta}: $${d.monto.toFixed(2)}</strong><span>${dateLbl}: ${obtenerFechaSegura(d)} | ${timeLbl}: ${d.hora}</span></div></li>`;
             });
+        }
+
+        // FUNCIÓN MEJORADA: Imprimir (Acepta Entregas o Gastos)
+        function imprimir(tipo) {
+            const historyBody = document.getElementById('printHistoryBody');
+            historyBody.innerHTML = '';
+            
+            if (tipo === 'deliveries') {
+                const validos = window.datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
+                document.getElementById('printTotalDeliveries').innerText = `Total Deliveries: ${validos.length}`;
+                document.getElementById('printHeaderTitle').innerText = t('printListTitle'); 
+                
+                if (validos.length === 0) {
+                    historyBody.innerHTML = `<tr><td colspan="3" style="text-align:center;">${t('msgNoDeliveriesHistory')}</td></tr>`;
+                } else {
+                    [...validos].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).forEach(d => { 
+                        historyBody.innerHTML += `<tr><td>${obtenerFechaSegura(d)}</td><td>${d.hora}</td><td>$${d.monto.toFixed(2)}</td></tr>`; 
+                    });
+                }
+            } else {
+                const validos = window.datos.filter(d => d.tipo === 'gasto' && d.monto > 0);
+                document.getElementById('printTotalDeliveries').innerText = `Total Gastos: ${validos.length}`;
+                document.getElementById('printHeaderTitle').innerText = currentLang === 'es' ? "Listado de Gastos" : "Expenses List";
+                
+                if (validos.length === 0) {
+                    historyBody.innerHTML = `<tr><td colspan="3" style="text-align:center;">${t('msgNoExpensesHistory')}</td></tr>`;
+                } else {
+                    [...validos].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).forEach(d => { 
+                        let etiqueta = d.tipoGasto === 'gasolina' ? (currentLang === 'es' ? 'Gasolina' : 'Gas') : (currentLang === 'es' ? 'Comida' : 'Food');
+                        historyBody.innerHTML += `<tr><td>${obtenerFechaSegura(d)}</td><td>${d.hora}</td><td>$${d.monto.toFixed(2)} (${etiqueta})</td></tr>`; 
+                    });
+                }
+            }
+            window.print();
         }
 
         function toggleSound() { soundEnabled = !soundEnabled; localStorage.setItem('soundEnabled', soundEnabled); document.getElementById('btnSound').textContent = soundEnabled ? '🔊' : '🔇'; }
@@ -1241,7 +1284,6 @@
 
             if (!monto || monto <= 0) { mostrarMensaje('deliveryAlerta', t('msgInvalidAmount')); return; }
             
-            // PREVENIR DOBLE CLIC (Skeleton Loading Visual)
             btn.disabled = true;
             btn.innerText = "Guardando...";
 
@@ -1279,7 +1321,6 @@
             document.getElementById('numPedido').value = window.datos[index].numPedido || '';
             document.getElementById('formTitle').innerText = t('btnEditDelivery');
             
-            // Toma "Editar" de "Editar Cambios"
             document.getElementById('btnGuardar').innerText = t('btnEditDelivery').split(' ')[0]; 
             document.getElementById('btnCancelar').style.display = 'block';
             cambiarPestana('deliveries'); window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1362,15 +1403,12 @@
             balanceChart.data.datasets[0].data = [sumaMes, gasMes, comidaMes]; balanceChart.update();
         }
 
+        // FUNCION MEJORADA: Se separó la lógica de impresión dinámica hacia imprimir(tipo)
         function actualizarInterfaz() {
             if (!window.perfil) return;
-            document.getElementById('printNombreCompleto').innerText = `${window.perfil.nombre} ${window.perfil.apellido}`.trim(); document.getElementById('printDocIdentidad').innerText = `ID: ${window.perfil.cedula}`;
-            const deliveriesValidos = window.datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
-            document.getElementById('printTotalDeliveries').innerText = `Total: ${deliveriesValidos.length}`;
-            const historyBody = document.getElementById('printHistoryBody'); historyBody.innerHTML = '';
-            if (deliveriesValidos.length === 0) { historyBody.innerHTML = `<tr><td colspan="3" style="text-align:center;">${t('msgNoDeliveriesHistory')}</td></tr>`; } 
-            else { [...deliveriesValidos].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).forEach(d => { historyBody.innerHTML += `<tr><td>${obtenerFechaSegura(d)}</td><td>${d.hora}</td><td>$${d.monto.toFixed(2)}</td></tr>`; }); }
-
+            document.getElementById('printNombreCompleto').innerText = `${window.perfil.nombre} ${window.perfil.apellido}`.trim(); 
+            document.getElementById('printDocIdentidad').innerText = `ID: ${window.perfil.cedula}`;
+            
             const hoyObj = new Date(); const hoyStr = formatearFechaISO(hoyObj);
             const localeMap = { es: 'es-ES', en: 'en-US', pt: 'pt-BR', fr: 'fr-FR', de: 'de-DE', it: 'it-IT', ja: 'ja-JP', zh: 'zh-CN' };
             const localeStr = localeMap[currentLang] || 'es-ES';
@@ -1497,16 +1535,51 @@
             window.addEventListener('DOMContentLoaded', () => { const btn = document.getElementById('btnTheme'); if(btn) btn.textContent = '☀️'; });
         }
 
-        function mostrarOpcionesExportar() { document.getElementById('btnShowExport').style.display = 'none'; document.getElementById('opcionesExportar').style.display = 'block'; }
-        function cancelarExportar() { document.getElementById('btnShowExport').style.display = 'block'; document.getElementById('opcionesExportar').style.display = 'none'; }
+        // FUNCIÓN MEJORADA: Opciones Duales (Deliveries / Gastos)
+        function mostrarOpcionesExportar(tipo) { 
+            tipoExportacionGlobal = tipo;
+            if(tipo === 'deliveries') {
+                document.getElementById('btnShowExport').style.display = 'none'; 
+                document.getElementById('opcionesExportar').style.display = 'block'; 
+            } else {
+                document.getElementById('btnShowExportGastos').style.display = 'none'; 
+                document.getElementById('opcionesExportarGastos').style.display = 'block'; 
+            }
+        }
+
+        function cancelarExportar(tipo) { 
+            if(tipo === 'deliveries') {
+                document.getElementById('btnShowExport').style.display = 'block'; 
+                document.getElementById('opcionesExportar').style.display = 'none'; 
+            } else {
+                document.getElementById('btnShowExportGastos').style.display = 'block'; 
+                document.getElementById('opcionesExportarGastos').style.display = 'none'; 
+            }
+        }
         
-        function confirmarExportarExcel() {
-            const deliveriesValidos = window.datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
-            if (deliveriesValidos.length === 0) { mostrarMensaje('deliveryAlerta', t('msgNoDataExport')); cancelarExportar(); return; }
-            const inputNombre = document.getElementById('nombreReporteInput'); let nombreUsuario = inputNombre ? inputNombre.value.trim() : "reporte_deliveries";
-            nombreUsuario = nombreUsuario === "" ? "reporte_deliveries" : nombreUsuario; const nombreLimpio = nombreUsuario.replace(/\.csv$/i, '');
+        function confirmarExportarExcel(tipo) {
+            tipoExportacionGlobal = tipo;
+            const validos = tipo === 'deliveries' 
+                ? window.datos.filter(d => d.tipo !== 'gasto' && d.monto > 0)
+                : window.datos.filter(d => d.tipo === 'gasto' && d.monto > 0);
+
+            if (validos.length === 0) { 
+                mostrarMensaje(tipo === 'deliveries' ? 'deliveryAlerta' : 'gastoAlerta', t('msgNoDataExport')); 
+                cancelarExportar(tipo); 
+                return; 
+            }
+
+            const inputId = tipo === 'deliveries' ? 'nombreReporteInput' : 'nombreReporteInputGastos';
+            const defaultName = tipo === 'deliveries' ? 'reporte_deliveries' : 'reporte_gastos';
+            const inputNombre = document.getElementById(inputId); 
+            
+            let nombreUsuario = inputNombre ? inputNombre.value.trim() : defaultName;
+            nombreUsuario = nombreUsuario === "" ? defaultName : nombreUsuario; 
+            const nombreLimpio = nombreUsuario.replace(/\.csv$/i, '');
+            
             let archivosExportados = []; try { archivosExportados = JSON.parse(localStorage.getItem('archivosExportados')) || []; } catch(e){}
             archivoPendienteExportar = nombreLimpio;
+            
             const modalText = document.getElementById('excelConfirmText'); const modalButtons = document.getElementById('excelModalButtons');
             if (archivosExportados.includes(nombreLimpio)) {
                 modalText.innerText = currentLang === 'es' ? `Ya has descargado un archivo "${nombreLimpio}".` : `File "${nombreLimpio}" exists.`;
@@ -1521,18 +1594,34 @@
         function cerrarExcelConfirm() { document.getElementById('excelConfirmModal').style.display = 'none'; }
         
         function ejecutarExportarExcel(conSufijo) {
-            cerrarExcelConfirm(); let nombreLimpio = archivoPendienteExportar || "reporte_deliveries"; let nombreArchivo = `${nombreLimpio}.csv`;
+            cerrarExcelConfirm(); 
+            const defaultName = tipoExportacionGlobal === 'deliveries' ? 'reporte_deliveries' : 'reporte_gastos';
+            let nombreLimpio = archivoPendienteExportar || defaultName; 
+            let nombreArchivo = `${nombreLimpio}.csv`;
+            
             if (conSufijo) { const ahora = new Date(); const timestamp = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}_${String(ahora.getHours()).padStart(2, '0')}${String(ahora.getMinutes()).padStart(2, '0')}${String(ahora.getSeconds()).padStart(2, '0')}`; nombreArchivo = `${nombreLimpio}_${timestamp}.csv`; }
             let archivosExportados = []; try { archivosExportados = JSON.parse(localStorage.getItem('archivosExportados')) || []; } catch(e){}
             if (!archivosExportados.includes(nombreLimpio)) { archivosExportados.push(nombreLimpio); try { localStorage.setItem('archivosExportados', JSON.stringify(archivosExportados)); } catch(e){} }
-            const deliveriesValidos = window.datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
+            
             const headerDate = t('thDate'); const headerTime = t('thTime'); const headerAmount = t('thAmount');
-            let csvContent = `${headerDate},${headerTime},${headerAmount},Pedido,Nota\n`;
-            deliveriesValidos.forEach(d => { csvContent += `${obtenerFechaSegura(d)},${d.hora},${d.monto},${d.numPedido ? d.numPedido.replace(/,/g, ' ') : ''},${d.nota ? d.nota.replace(/,/g, ' ') : ''}\n`; });
+            let csvContent = "";
+
+            if (tipoExportacionGlobal === 'deliveries') {
+                const validos = window.datos.filter(d => d.tipo !== 'gasto' && d.monto > 0);
+                csvContent = `${headerDate},${headerTime},${headerAmount},Pedido,Nota\n`;
+                validos.forEach(d => { csvContent += `${obtenerFechaSegura(d)},${d.hora},${d.monto},${d.numPedido ? d.numPedido.replace(/,/g, ' ') : ''},${d.nota ? d.nota.replace(/,/g, ' ') : ''}\n`; });
+            } else {
+                const validos = window.datos.filter(d => d.tipo === 'gasto' && d.monto > 0);
+                csvContent = `${headerDate},${headerTime},${headerAmount},Categoria\n`;
+                validos.forEach(d => { csvContent += `${obtenerFechaSegura(d)},${d.hora},${d.monto},${d.tipoGasto}\n`; });
+            }
+
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob);
             const link = document.createElement("a"); link.setAttribute("href", url); link.setAttribute("download", nombreArchivo);
             document.body.appendChild(link); link.click(); document.body.removeChild(link);
-            mostrarMensaje('deliveryExito', t('msgDownloadInfo'), false); cancelarExportar();
+            
+            mostrarMensaje(tipoExportacionGlobal === 'deliveries' ? 'deliveryExito' : 'gastoExito', t('msgDownloadInfo'), false); 
+            cancelarExportar(tipoExportacionGlobal);
         }
     </script>
 </body>
