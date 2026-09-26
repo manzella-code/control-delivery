@@ -1,4 +1,4 @@
-const CACHE_NAME = 'delivery-cache-v1.60.3';
+const CACHE_NAME = 'delivery-cache-v1.60.4';
 const assetsToCache = [
   '/',
   '/index.html',
@@ -28,7 +28,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // MEJORA PWA: Ignorar peticiones a la base de datos o que no sean GET
+  // Ignorar peticiones a la base de datos o que no sean GET
   if (event.request.method !== 'GET' || 
       event.request.url.includes('firestore.googleapis.com') || 
       event.request.url.includes('identitytoolkit.googleapis.com')) {
