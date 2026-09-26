@@ -1,4 +1,4 @@
-const CACHE_NAME = 'delivery-cache-v1.60.0';
+const CACHE_NAME = 'delivery-cache-v1.60.1';
 const assetsToCache = [
   '/',
   '/index.html',
@@ -27,19 +27,23 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Estrategia Network First (Prioriza la red, si falla usa el caché local)
 self.addEventListener('fetch', (event) => {
+  // MEJORA PWA: Ignorar peticiones a la base de datos o que no sean GET
+  if (event.request.method !== 'GET' || 
+      event.request.url.includes('firestore.googleapis.com') || 
+      event.request.url.includes('identitytoolkit.googleapis.com')) {
+      return; 
+  }
+
   event.respondWith(
     fetch(event.request).then((networkResponse) => {
       return caches.open(CACHE_NAME).then((cache) => {
-        // Almacena dinámicamente peticiones GET válidas para uso offline
-        if (event.request.method === 'GET' && !event.request.url.startsWith('chrome-extension')) {
+        if (!event.request.url.startsWith('chrome-extension')) {
             cache.put(event.request, networkResponse.clone());
         }
         return networkResponse;
       });
     }).catch(() => {
-      // Si no hay red, entrega la versión en caché
       return caches.match(event.request);
     })
   );
