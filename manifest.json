@@ -5,28 +5,13 @@
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#10b981",
-  "description": "Aplicación PWA rápida y segura para gestionar registros de delivery, gastos e ingresos diarios.",
+  "description": "Aplicación PWA para gestionar registros de delivery, gastos e ingresos.",
   "icons": [
     {
       "src": "icon.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "Nuevo Delivery",
-      "url": "/index.html?tab=deliveries",
-      "description": "Registra una entrega rápidamente"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "icon.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "wide"
+      "purpose": "any"
     }
   ]
 }
