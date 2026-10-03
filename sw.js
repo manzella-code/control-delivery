@@ -6,6 +6,7 @@ const assetsToCache = [
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(assetsToCache);
@@ -23,12 +24,11 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  // Ignorar peticiones a la base de datos o que no sean GET
   if (event.request.method !== 'GET' || 
       event.request.url.includes('firestore.googleapis.com') || 
       event.request.url.includes('identitytoolkit.googleapis.com')) {
