@@ -18,6 +18,7 @@
         window.authChecked = false;
         window.authUser = null;
         window.licenseValid = false;
+        window.requiresOnlineVerification = false;
         window.splashFinished = false;
         window.userRole = 'usuario';
         window.datos = [];
@@ -28,12 +29,15 @@
 
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('expiredScreen').style.display = 'none';
+            document.getElementById('connectionRequiredScreen').style.display = 'none';
             document.getElementById('authScreen').style.display = 'none';
             document.getElementById('perfilCard').style.display = 'none';
             document.getElementById('mainApp').style.display = 'none';
 
             if(!window.authUser) {
                 document.getElementById('loginScreen').style.display = 'flex';
+            } else if(window.requiresOnlineVerification) {
+                document.getElementById('connectionRequiredScreen').style.display = 'flex';
             } else if(!window.licenseValid) {
                 document.getElementById('expiredScreen').style.display = 'flex';
             } else {
@@ -68,7 +72,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, enableMultiTabIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBEd6vASra5aogel6-smzRg98wi8YvyXcU",
@@ -82,6 +86,15 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+
+        // PERSISTENCIA OFFLINE DE FIRESTORE
+        enableMultiTabIndexedDbPersistence(db).catch((err) => {
+            if (err.code === 'failed-precondition') {
+                console.warn('Persistencia falló por múltiples pestañas abiertas.');
+            } else if (err.code === 'unimplemented') {
+                console.warn('El navegador no soporta persistencia offline.');
+            }
+        });
 
         window.dbInstance = db; 
 
@@ -103,31 +116,55 @@
 
         window.logoutFirebase = async () => {
             await signOut(auth);
+            localStorage.removeItem('lastLicenseCheck');
             location.reload();
+        };
+
+        window.reverificarConexionLicencia = () => {
+            if(navigator.onLine) {
+                location.reload();
+            } else {
+                alert("Aún no tienes conexión a internet. Conéctate para verificar tu licencia.");
+            }
         };
 
         onAuthStateChanged(auth, async (user) => {
             window.authChecked = true;
             if (user) {
                 window.authUser = user;
+                const now = Date.now();
+                const lastCheck = parseInt(localStorage.getItem('lastLicenseCheck') || '0', 10);
+                const hrsPassed = (now - lastCheck) / (1000 * 60 * 60);
+
                 try {
                     const userRef = doc(db, "usuarios", user.uid);
                     let docSnap = await getDoc(userRef);
-                    if (!docSnap.exists()) {
-                        const vVence = Date.now() + (3 * 24 * 60 * 60 * 1000);
-                        await setDoc(userRef, { email: user.email, licenciaVence: vVence, rol: "usuario", nombre: "", apellido: "", cedula: "", inicioSemana: 1 });
-                        window.licenseValid = true;
-                        window.userRole = "usuario";
-                        window.perfil = { nombre: "", apellido: "", cedula: "", inicioSemana: 1 };
-                    } else {
+                    
+                    if (docSnap.exists()) {
                         const data = docSnap.data();
                         window.userRole = data.rol || 'usuario';
                         window.perfil = { nombre: data.nombre || "", apellido: data.apellido || "", cedula: data.cedula || "", inicioSemana: data.inicioSemana ?? 1 };
-                        if (data.rol === "admin" || Date.now() < data.licenciaVence) {
-                            window.licenseValid = true;
-                        } else {
-                            window.licenseValid = false;
-                        }
+                        
+                        const isLicValid = data.rol === "admin" || now < data.licenciaVence;
+                        window.licenseValid = isLicValid;
+                        window.requiresOnlineVerification = false;
+
+                        localStorage.setItem('lastLicenseCheck', now.toString());
+                        localStorage.setItem('cachedLicenseValid', isLicValid ? 'true' : 'false');
+                        localStorage.setItem('cachedRole', window.userRole);
+                        localStorage.setItem('cachedPerfil', JSON.stringify(window.perfil));
+                    } else {
+                        const vVence = now + (3 * 24 * 60 * 60 * 1000);
+                        await setDoc(userRef, { email: user.email, licenciaVence: vVence, rol: "usuario", nombre: "", apellido: "", cedula: "", inicioSemana: 1 });
+                        window.licenseValid = true;
+                        window.requiresOnlineVerification = false;
+                        window.userRole = "usuario";
+                        window.perfil = { nombre: "", apellido: "", cedula: "", inicioSemana: 1 };
+
+                        localStorage.setItem('lastLicenseCheck', now.toString());
+                        localStorage.setItem('cachedLicenseValid', 'true');
+                        localStorage.setItem('cachedRole', 'usuario');
+                        localStorage.setItem('cachedPerfil', JSON.stringify(window.perfil));
                     }
 
                     const transRef = collection(db, "usuarios", user.uid, "transacciones");
@@ -140,12 +177,22 @@
                     });
 
                 } catch(e) {
-                    console.error("DB Error:", e);
-                    window.licenseValid = false;
+                    console.error("DB Error / Offline Mode:", e);
+                    
+                    // Si falla la red, usar caché local si no han pasado 24h
+                    if (hrsPassed <= 24 && localStorage.getItem('cachedLicenseValid') !== null) {
+                        window.licenseValid = localStorage.getItem('cachedLicenseValid') === 'true';
+                        window.userRole = localStorage.getItem('cachedRole') || 'usuario';
+                        try { window.perfil = JSON.parse(localStorage.getItem('cachedPerfil')); } catch(err) {}
+                        window.requiresOnlineVerification = false;
+                    } else {
+                        window.requiresOnlineVerification = true;
+                    }
                 }
             } else {
                 window.authUser = null;
                 window.licenseValid = false;
+                window.requiresOnlineVerification = false;
                 window.userRole = 'usuario';
                 window.datos = [];
                 window.perfil = null;
@@ -187,6 +234,7 @@
             try {
                 await updateDoc(doc(db, "usuarios", window.authUser.uid), nuevoPerfil);
                 window.perfil = nuevoPerfil;
+                localStorage.setItem('cachedPerfil', JSON.stringify(nuevoPerfil));
                 window.location.reload();
             } catch(e) { console.error("Error guardando perfil:", e); }
         };
@@ -194,6 +242,7 @@
         // ADMIN PANEL
         window.abrirAdminPanel = async () => {
             if (window.userRole !== 'admin') return;
+            history.pushState({ screen: 'admin' }, '');
             document.getElementById('adminScreen').style.display = 'block';
             const lista = document.getElementById('listaUsuariosAdmin');
             lista.innerHTML = '<div style="text-align:center; padding:20px;">Cargando usuarios...</div>';
@@ -237,8 +286,9 @@
             } catch (e) { btn.innerText = "Error. Intentar de nuevo."; btn.disabled = false; }
         };
 
-        // AUDITORÍA ROBUSTA (Ver Movimientos)
+        // AUDITORÍA ROBUSTA
         window.verMovimientosUsuario = async (uidCliente, emailCliente) => {
+            history.pushState({ screen: 'adminUserDetail' }, '');
             const screen = document.getElementById('adminUserDetailScreen');
             screen.style.display = 'block';
             document.getElementById('adminDetailEmail').innerText = `Cliente: ${emailCliente}`;
@@ -311,7 +361,7 @@
 
         window.cerrarAdminUserDetailScreen = () => { document.getElementById('adminUserDetailScreen').style.display = 'none'; };
 
-        // DESCARGA ADMIN ROBUSTA (DELIVERIES Y GASTOS UNIFICADOS)
+        // DESCARGA ADMIN
         window.descargarRespaldoUsuario = async (uidCliente, emailCliente) => {
             try {
                 let nombreCompleto = "";
@@ -335,9 +385,7 @@
                     const fechaF = d.fechaTexto || d.fecha || '';
                     const montoF = d.monto || 0;
                     
-                    // Condición 100% robusta para capturar cualquier gasto viejo o nuevo
                     const esGasto = d.tipo === 'gasto' || d.tipoGasto !== undefined || d.tipo === 'gasolina' || d.tipo === 'comida' || d.categoria === 'gasolina' || d.categoria === 'comida';
-                    
                     const tipoF = esGasto ? `Gasto` : 'Delivery';
                     
                     let detalleF = "";
@@ -369,7 +417,7 @@
         * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; }
         body { background: #f4f6f8; padding: 15px; color: #333; max-width: 500px; margin: 0 auto; transition: background 0.3s, color 0.3s; }
         
-        #splashScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 999999; transition: opacity 0.5s ease; }
+        #splashScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 999999; transition: opacity 0.3s ease; }
         .splash-title { font-size: 1.5rem; font-weight: bold; color: #10b981; letter-spacing: 0.5px; }
         .splash-subtitle { font-size: 0.85rem; color: #64748b; margin-top: 5px; }
 
@@ -422,7 +470,7 @@
 
         #historialTotalScreen, #historialGastosScreen, #adminScreen, #adminUserDetailScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f4f6f8; z-index: 99999; padding: 15px; overflow-y: auto; }
 
-        #loginScreen, #expiredScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 99998; flex-direction: column; justify-content: center; align-items: center; padding: 20px; text-align: center; }
+        #loginScreen, #expiredScreen, #connectionRequiredScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 99998; flex-direction: column; justify-content: center; align-items: center; padding: 20px; text-align: center; }
         #authScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 99997; flex-direction: column; justify-content: center; align-items: center; }
         
         .fingerprint-icon-btn { display: flex; justify-content: center; align-items: center; padding: 15px; border-radius: 50%; cursor: pointer; transition: transform 0.2s, background 0.2s; background: rgba(59, 130, 246, 0.05); }
@@ -437,7 +485,7 @@
 
         /* MODO OSCURO GLOBAL */
         [data-theme="dark"] { --bg-color: #121212 !important; --text-color: #e0e0e0 !important; --card-bg: #1e1e1e !important; --border-color: #333333 !important; }
-        [data-theme="dark"] body, [data-theme="dark"] #authScreen, [data-theme="dark"] #loginScreen, [data-theme="dark"] #expiredScreen { background: var(--bg-color); color: var(--text-color); }
+        [data-theme="dark"] body, [data-theme="dark"] #authScreen, [data-theme="dark"] #loginScreen, [data-theme="dark"] #expiredScreen, [data-theme="dark"] #connectionRequiredScreen { background: var(--bg-color); color: var(--text-color); }
         [data-theme="dark"] #splashScreen { background: #121212; color: #e0e0e0; }
         [data-theme="dark"] #historialTotalScreen, [data-theme="dark"] #historialGastosScreen, [data-theme="dark"] #adminScreen, [data-theme="dark"] #adminUserDetailScreen { background: var(--bg-color); color: var(--text-color); }
         [data-theme="dark"] .card, [data-theme="dark"] .modal-card { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); }
@@ -512,6 +560,14 @@
     <div id="expiredScreen">
         <h1 style="color:#ef4444; margin-bottom: 10px; font-size: 1.8rem;" data-i18n="expiredTitle">⚠️ Licencia Vencida</h1>
         <p style="color:#64748b; margin-bottom: 25px; font-size:1.1rem; max-width: 300px;" data-i18n="expiredSub">Tu periodo de prueba o licencia ha terminado. Por favor, contacta al soporte técnico para renovar.</p>
+        <button onclick="logoutFirebase()" class="btn-secondary" style="max-width: 320px;" data-i18n="btnLogout">Cerrar Sesión</button>
+    </div>
+
+    <!-- 3B. PANTALLA REQUERE CONEXIÓN DE RED PARA LICENCIA -->
+    <div id="connectionRequiredScreen">
+        <h1 style="color:#f59e0b; margin-bottom: 10px; font-size: 1.8rem;">🌐 Conexión Requerida</h1>
+        <p style="color:#64748b; margin-bottom: 25px; font-size:1rem; max-width: 320px;">Han transcurrido más de 24 horas sin verificar tu licencia. Por favor conéctate a internet para validar el acceso.</p>
+        <button onclick="reverificarConexionLicencia()" style="max-width: 320px; margin-bottom: 10px;">Reintentar Conexión</button>
         <button onclick="logoutFirebase()" class="btn-secondary" style="max-width: 320px;" data-i18n="btnLogout">Cerrar Sesión</button>
     </div>
 
@@ -616,7 +672,6 @@
             <div class="custom-dropdown">
                 <button id="langDropdownBtn" class="custom-dropdown-btn" onclick="toggleLangMenu()">Español ▾</button>
                 <div id="langDropdownMenu" class="custom-dropdown-menu">
-                    <!-- IDIOMAS -->
                     <div class="custom-dropdown-item" onclick="cambiarIdioma('es')">Español</div>
                     <div class="custom-dropdown-item" onclick="cambiarIdioma('en')">English</div>
                     <div class="custom-dropdown-item" onclick="cambiarIdioma('pt')">Português</div>
@@ -930,15 +985,15 @@
     <script>
         const translations = {
             es: { loginSub: "Inicia sesión para continuar", loginEmailPh: "Correo electrónico", loginPassPh: "Contraseña", btnLogin: "Iniciar Sesión", btnRegister: "Crear Cuenta Nueva", expiredTitle: "⚠️ Licencia Vencida", expiredSub: "Tu periodo de prueba o licencia ha terminado.", btnLogout: "Cerrar Sesión", configTitle: "Configuración de Perfil", configSub: "Ingresa tus datos para los reportes", placeholderNombre: "Nombre", placeholderApellido: "Apellido", placeholderCedula: "Documento de Identidad", startWeekLabel: "Día que inicia tu semana laboral:", optMon: "Lunes", optTue: "Martes", optWed: "Miércoles", optThu: "Jueves", optFri: "Viernes", optSat: "Sábado", optSun: "Domingo", securityLabel: "Seguridad y Acceso:", btnEnableBio: "🔒 Activar Bloqueo", btnDisableBio: "🔓 Desactivar Bloqueo", authTitle: "Bienvenido", authSub: "Toca la huella para iniciar", btnSaveConfig: "Guardar Configuración", tabDeliveries: "📦 Deliveries", tabExpenses: "⛽ Gastos", tabChart: "📊 Gráfico", regDeliveryTitle: "Registrar Entrega", regDeliverySub: "Ingresa el monto del delivery realizado", placeholderMonto: "Monto ($)", placeholderPedido: "Número de pedido (opcional)", placeholderNota: "Nota (opcional)", btnAddDelivery: "+ Agregar Delivery", btnEditDelivery: "Editar Cambios", btnCancelEdit: "Cancelar Edición", todaySummary: "Resumen de Hoy", statDeliveries: "Deliveries", statTotalToday: "Total Hoy", yesterdaySummary: "Resumen de Ayer", statDeliveriesYesterday: "Deliveries", statTotalYesterday: "Total Ayer", weekSummary: "Resumen Semanal", statTotalWeek: "Total Semana", statDaysWorked: "Días Trabajados", monthSummary: "Resumen Mensual", statTotalMonth: "Total Mes", yearSummary: "Resumen Anual", statTotalYear: "Total Año", btnPrint: "🖨️ Imprimir / Guardar PDF", btnAllHistory: "📋 Ver Movimientos", btnAllExpensesHistory: "📋 Ver Todos los Gastos", btnExportExcel: "📊 Exportar a Excel", historyScreenTitle: "Historial de Deliveries", expensesHistoryScreenTitle: "Historial de Gastos", btnBack: "← Volver", btnFilter: "Filtrar", exportSub: "Escribe el nombre del archivo:", btnCancel: "Cancelar", btnDownload: "Descargar", btnContinue: "Continuar", modalExcelTitle: "Exportar a Excel", modalExcelDesc: "Presione continuar para grabar.", btnSuffix: "Agregar Sufijo", btnOverwrite: "Sobrescribir", regExpenseTitle: "Registrar Gasto", regExpenseSub: "Selecciona el tipo y monto", optGas: "⛽ Gasolina", optFood: "🍔 Comida / Snacks", btnAddExpense: "+ Agregar Gasto", todayExpenses: "Gastos de Hoy", statGasToday: "Gasolina Hoy", statFoodToday: "Comida Hoy", weekExpenses: "Gastos Semanales", statGasWeek: "Gasolina Sem", statFoodWeek: "Comida Sem", monthExpenses: "Gastos Mensuales", statGasMonth: "Gasolina Mes", statFoodMonth: "Comida Mes", chartTitle: "Balance Visual", chartSub: "Ganancias vs Gasolina y Comidas", chartOrdersTitle: "Total de Pedidos", statOrdersToday: "Hoy", statOrdersWeek: "Semana", statOrdersMonth: "Mes", btnEditProfile: "⚙️ Modificar Configuración", modalConfirmTitle: "Confirmación", btnAccept: "Aceptar", printListTitle: "Listado de Deliveries", thDate: "Fecha", thTime: "Hora", thAmount: "Monto", msgInvalidAmount: "Ingresa un monto válido", msgInvalidExpense: "Ingresa un monto válido", msgInvalidProfile: "Ingresa tu Nombre y Documento", msgNoDataExport: "No hay datos para exportar.", msgNoDeliveriesToday: "No hay deliveries hoy", msgNoExpensesToday: "No hay gastos hoy", msgNoDeliveriesHistory: "No hay deliveries", msgNoExpensesHistory: "No hay gastos", confirmDeleteDelivery: "¿Eliminar este delivery?", confirmDeleteExpense: "¿Eliminar este gasto?", splashSub: "Cargando aplicación...", msgDownloadInfo: "📁 Archivo guardado.", msgBioSuccess: "Huella configurada.", msgBioError: "Error de huella.", msgBioUnauth: "No se verificó." },
-            en: { loginSub: "Sign in to continue", loginEmailPh: "Email", loginPassPh: "Password", btnLogin: "Login", btnRegister: "Create Account", expiredTitle: "⚠️ License Expired", expiredSub: "Your license has ended.", btnLogout: "Logout", configTitle: "Profile Setup", configSub: "Enter your info", placeholderNombre: "First Name", placeholderApellido: "Last Name", placeholderCedula: "ID", startWeekLabel: "Work week starts on:", optMon: "Monday", optTue: "Tuesday", optWed: "Wednesday", optThu: "Thursday", optFri: "Friday", optSat: "Saturday", optSun: "Sunday", securityLabel: "Security:", btnEnableBio: "🔒 Enable Lock", btnDisableBio: "🔓 Disable Lock", authTitle: "Welcome", authSub: "Tap fingerprint to start", btnSaveConfig: "Save Settings", tabDeliveries: "📦 Deliveries", tabExpenses: "⛽ Expenses", tabChart: "📊 Chart", regDeliveryTitle: "Register Delivery", regDeliverySub: "Enter amount", placeholderMonto: "Amount ($)", placeholderPedido: "Order Number (opt.)", placeholderNota: "Note (optional)", btnAddDelivery: "+ Add Delivery", btnEditDelivery: "Edit Changes", btnCancelEdit: "Cancel", todaySummary: "Today's Summary", statDeliveries: "Deliveries", statTotalToday: "Today Total", yesterdaySummary: "Yesterday's Summary", statDeliveriesYesterday: "Deliveries", statTotalYesterday: "Yesterday Total", weekSummary: "Weekly Summary", statTotalWeek: "Week Total", statDaysWorked: "Days Worked", monthSummary: "Monthly Summary", statTotalMonth: "Month Total", yearSummary: "Yearly Summary", statTotalYear: "Year Total", btnPrint: "🖨️ Print / PDF", btnAllHistory: "📋 View History", btnAllExpensesHistory: "📋 View Expenses", btnExportExcel: "📊 Export to Excel", historyScreenTitle: "Delivery History", expensesHistoryScreenTitle: "Expense History", btnBack: "← Back", btnFilter: "Filter", exportSub: "Enter file name:", btnCancel: "Cancel", btnDownload: "Download", btnContinue: "Continue", modalExcelTitle: "Export Excel", modalExcelDesc: "Press continue to save.", btnSuffix: "Add Suffix", btnOverwrite: "Overwrite", regExpenseTitle: "Register Expense", regExpenseSub: "Select type", optGas: "⛽ Gas", optFood: "🍔 Food", btnAddExpense: "+ Add Expense", todayExpenses: "Today's Expenses", statGasToday: "Gas Today", statFoodToday: "Food Today", weekExpenses: "Weekly Expenses", statGasWeek: "Gas Week", statFoodWeek: "Food Week", monthExpenses: "Monthly Expenses", statGasMonth: "Gas Month", statFoodMonth: "Food Month", chartTitle: "Visual Balance", chartSub: "Earnings vs Expenses", chartOrdersTitle: "Total Orders", statOrdersToday: "Today", statOrdersWeek: "Week", statOrdersMonth: "Month", btnEditProfile: "⚙️ Edit Profile", modalConfirmTitle: "Confirmation", btnAccept: "Accept", printListTitle: "List of Deliveries", thDate: "Date", thTime: "Time", thAmount: "Amount", msgInvalidAmount: "Valid amount required", msgInvalidExpense: "Valid amount required", msgInvalidProfile: "Name and ID required", msgNoDataExport: "No data to export.", msgNoDeliveriesToday: "No deliveries today", msgNoExpensesToday: "No expenses today", msgNoDeliveriesHistory: "No deliveries", msgNoExpensesHistory: "No expenses", confirmDeleteDelivery: "Delete delivery?", confirmDeleteExpense: "Delete expense?", splashSub: "Loading...", msgDownloadInfo: "📁 File saved.", msgBioSuccess: "Lock enabled.", msgBioError: "Lock error.", msgBioUnauth: "Unverified." },
+            en: { loginSub: "Sign in to continue", loginEmailPh: "Email", loginPassPh: "Password", btnLogin: "Login", btnRegister: "Create Account", expiredTitle: "⚠️ License Expired", expiredSub: "Your license has ended.", btnLogout: "Logout", configTitle: "Profile Setup", configSub: "Enter your info", placeholderNombre: "First Name", placeholderApellido: "Last Name", placeholderCedula: "ID", startWeekLabel: "Work week starts on:", optMon: "Monday", optTue: "Tuesday", optWed: "Wednesday", optThu: "Thursday", optFri: "Friday", optSat: "Saturday", optSun: "Sunday", securityLabel: "Security:", btnEnableBio: "🔒 Enable Lock", btnDisableBio: "🔓 Disable Lock", authTitle: "Welcome", authSub: "Tap fingerprint to start", btnSaveConfig: "Save Settings", tabDeliveries: "📦 Deliveries", tabExpenses: "⛽ Expenses", tabChart: "📊 Chart", regDeliveryTitle: "Register Delivery", regDeliverySub: "Enter amount", placeholderMonto: "Amount ($)", placeholderPedido: "Order Number (opt.)", placeholderNota: "Note (optional)", btnAddDelivery: "+ Add Delivery", btnEditDelivery: "Edit Changes", btnCancelEdit: "Cancel", todaySummary: "Today's Summary", statDeliveries: "Deliveries", statTotalToday: "Today Total", yesterdaySummary: "Yesterday's Summary", statDeliveriesYesterday: "Deliveries", statTotalYesterday: "Yesterday Total", weekSummary: "Weekly Summary", statTotalWeek: "Week Total", statDaysWorked: "Days Worked", monthSummary: "Monthly Summary", statTotalMonth: "Month Total", yearSummary: "Yearly Summary", statTotalYear: "Year Total", btnPrint: "🖨️ Print / PDF", btnAllHistory: "📋 View History", btnAllExpensesHistory: "📋 View Expenses", btnExportExcel: "📊 Export to Excel", historyScreenTitle: "Delivery History", expensesHistoryScreenTitle: "Expense History", btnBack: "← Back", btnFilter: "Filter", exportSub: "Enter file name:", btnCancel: "Cancel", btnDownload: "Download", btnContinue: "Continue", modalExcelTitle: "Export Excel", modalExcelDesc: "Press continue to save.", btnSuffix: "Add Suffix", btnOverwrite: "Overwrite", regExpenseTitle: "Register Expense", regExpenseSub: "Select type", optGas: "⛽ Gas", optFood: "🍔 Food", btnAddExpense: "+ Add Expense", todayExpenses: "Today's Expenses", statGasToday: "Gas Today", statFoodToday: "Food Today", weekExpenses: "Weekly Expenses", statGasWeek: "Gas Week", statFoodWeek: "Food Week", monthExpenses: "Monthly Expenses", statGasMonth: "Gas Month", statFoodMonth: "Food Month", chartTitle: "Visual Balance", chartSub: "Earnings vs Expenses", chartOrdersTitle: "Total Orders", statOrdersToday: "Today", statOrdersWeek: "Week", statOrdersMonth: "Month", btnEditProfile: "⚙️ Edit Profile", modalConfirmTitle: "Confirmation", btnAccept: "Accept", printListTitle: "List of Deliveries", thDate: "Date", thTime: "Time", thAmount: "Amount", msgInvalidAmount: "Valid amount required", msgInvalidExpense: "Valid amount required", msgInvalidProfile: "Name and ID required", msgNoDataExport: "No data to export.", msgNoDeliveriesToday: "No deliveries today", msgNoExpensesToday: "No expenses today", msgNoDeliveriesHistory: "No deliveries", msgNoExpensesHistory: "No expenses", confirmDeleteDelivery: "Delete delivery?", confirmDeleteExpense: "Delete expense?", splashSub: "Loading...", msgDownloadInfo: "📁 File saved.", msgBioSuccess: "Lock enabled.", msgBioError: "Error.", msgBioUnauth: "Unverified." },
             pt: { loginSub: "Faça login", loginEmailPh: "E-mail", loginPassPh: "Senha", btnLogin: "Entrar", btnRegister: "Criar Conta", expiredTitle: "⚠️ Licença Expirada", expiredSub: "Sua licença terminou.", btnLogout: "Sair", configTitle: "Configuração", configSub: "Insira seus dados", placeholderNombre: "Nome", placeholderApellido: "Sobrenome", placeholderCedula: "Documento", startWeekLabel: "A semana começa:", optMon: "Segunda", optTue: "Terça", optWed: "Quarta", optThu: "Quinta", optFri: "Sexta", optSat: "Sábado", optSun: "Domingo", securityLabel: "Segurança:", btnEnableBio: "🔒 Ativar Bloqueio", btnDisableBio: "🔓 Desativar Bloqueio", authTitle: "Bem-vindo", authSub: "Toque na digital", btnSaveConfig: "Salvar", tabDeliveries: "📦 Entregas", tabExpenses: "⛽ Despesas", tabChart: "📊 Gráfico", regDeliveryTitle: "Registrar Entrega", regDeliverySub: "Insira o valor", placeholderMonto: "Valor ($)", placeholderPedido: "Nº do Pedido (opc.)", placeholderNota: "Nota (opcional)", btnAddDelivery: "+ Adicionar Entrega", btnEditDelivery: "Editar Alterações", btnCancelEdit: "Cancelar", todaySummary: "Resumo de Hoje", statDeliveries: "Entregas", statTotalToday: "Total Hoje", yesterdaySummary: "Resumo de Ontem", statDeliveriesYesterday: "Entregas", statTotalYesterday: "Total Ontem", weekSummary: "Resumo Semanal", statTotalWeek: "Total Semana", statDaysWorked: "Dias Trabalhados", monthSummary: "Resumo Mensal", statTotalMonth: "Total Mês", yearSummary: "Resumo Anual", statTotalYear: "Total Ano", btnPrint: "🖨️ Imprimir / PDF", btnAllHistory: "📋 Ver Histórico", btnAllExpensesHistory: "📋 Ver Despesas", btnExportExcel: "📊 Exportar Excel", historyScreenTitle: "Histórico Entregas", expensesHistoryScreenTitle: "Histórico Despesas", btnBack: "← Voltar", btnFilter: "Filtrar", exportSub: "Nome do arquivo:", btnCancel: "Cancelar", btnDownload: "Baixar", btnContinue: "Continuar", modalExcelTitle: "Exportar Excel", modalExcelDesc: "Pressione continuar.", btnSuffix: "Sufixo", btnOverwrite: "Sobrescrever", regExpenseTitle: "Registrar Despesa", regExpenseSub: "Selecione o tipo", optGas: "⛽ Gasolina", optFood: "🍔 Comida", btnAddExpense: "+ Adicionar", todayExpenses: "Despesas Hoje", statGasToday: "Gasolina Hoje", statFoodToday: "Comida Hoje", weekExpenses: "Despesas Semana", statGasWeek: "Gasolina Sem", statFoodWeek: "Comida Sem", monthExpenses: "Despesas Mensais", statGasMonth: "Gasolina Mês", statFoodMonth: "Comida Mês", chartTitle: "Balanço Visual", chartSub: "Ganhos vs Despesas", chartOrdersTitle: "Total Pedidos", statOrdersToday: "Hoje", statOrdersWeek: "Semana", statOrdersMonth: "Mês", btnEditProfile: "⚙️ Editar Perfil", modalConfirmTitle: "Confirmação", btnAccept: "Aceitar", printListTitle: "Lista de Entregas", thDate: "Data", thTime: "Hora", thAmount: "Valor", msgInvalidAmount: "Valor inválido", msgInvalidExpense: "Valor inválido", msgInvalidProfile: "Nome e Documento necessários", msgNoDataExport: "Sem dados para exportar.", msgNoDeliveriesToday: "Sem entregas hoje", msgNoExpensesToday: "Sem despesas hoje", msgNoDeliveriesHistory: "Sem entregas", msgNoExpensesHistory: "Sem despesas", confirmDeleteDelivery: "Excluir entrega?", confirmDeleteExpense: "Excluir despesa?", splashSub: "Carregando...", msgDownloadInfo: "📁 Arquivo salvo.", msgBioSuccess: "Bloqueio ativado.", msgBioError: "Erro.", msgBioUnauth: "Não verificado." },
             fr: { loginSub: "Connectez-vous", loginEmailPh: "Email", loginPassPh: "Mot de passe", btnLogin: "Connexion", btnRegister: "Créer un compte", expiredTitle: "⚠️ Licence expirée", expiredSub: "Votre licence est terminée.", btnLogout: "Déconnexion", configTitle: "Configuration", configSub: "Entrez vos données", placeholderNombre: "Prénom", placeholderApellido: "Nom", placeholderCedula: "Document", startWeekLabel: "La semaine commence:", optMon: "Lundi", optTue: "Mardi", optWed: "Mercredi", optThu: "Jeudi", optFri: "Vendredi", optSat: "Samedi", optSun: "Dimanche", securityLabel: "Sécurité:", btnEnableBio: "🔒 Activer le verrou", btnDisableBio: "🔓 Désactiver le verrou", authTitle: "Bienvenue", authSub: "Touchez pour démarrer", btnSaveConfig: "Enregistrer", tabDeliveries: "📦 Livraisons", tabExpenses: "⛽ Dépenses", tabChart: "📊 Graphique", regDeliveryTitle: "Enregistrer Livraison", regDeliverySub: "Entrez le montant", placeholderMonto: "Montant ($)", placeholderPedido: "Nº de Commande (opt.)", placeholderNota: "Note (optionnelle)", btnAddDelivery: "+ Ajouter Livraison", btnEditDelivery: "Éditer Changements", btnCancelEdit: "Annuler", todaySummary: "Résumé d'Aujourd'hui", statDeliveries: "Livraisons", statTotalToday: "Total Aujourd'hui", yesterdaySummary: "Résumé d'Hier", statDeliveriesYesterday: "Livraisons", statTotalYesterday: "Total Hier", weekSummary: "Résumé Semaine", statTotalWeek: "Total Semaine", statDaysWorked: "Jours travaillés", monthSummary: "Résumé Mois", statTotalMonth: "Total Mois", yearSummary: "Résumé Annuel", statTotalYear: "Total Année", btnPrint: "🖨️ Imprimer / PDF", btnAllHistory: "📋 Voir Historique", btnAllExpensesHistory: "📋 Voir Dépenses", btnExportExcel: "📊 Exporter Excel", historyScreenTitle: "Historique Livraisons", expensesHistoryScreenTitle: "Historique Dépenses", btnBack: "← Retour", btnFilter: "Filtrer", exportSub: "Nom du fichier:", btnCancel: "Annuler", btnDownload: "Télécharger", btnContinue: "Continuer", modalExcelTitle: "Exporter Excel", modalExcelDesc: "Appuyez sur continuer.", btnSuffix: "Suffixe", btnOverwrite: "Écraser", regExpenseTitle: "Enregistrer Dépense", regExpenseSub: "Sélectionnez le type", optGas: "⛽ Essence", optFood: "🍔 Nourriture", btnAddExpense: "+ Ajouter", todayExpenses: "Dépenses Aujourd'hui", statGasToday: "Essence Auj.", statFoodToday: "Nourriture Auj.", weekExpenses: "Dépenses Semaine", statGasWeek: "Essence Sem.", statFoodWeek: "Nourriture Sem.", monthExpenses: "Dépenses Mois", statGasMonth: "Essence Mois", statFoodMonth: "Nourriture Mois", chartTitle: "Bilan Visuel", chartSub: "Gains vs Dépenses", chartOrdersTitle: "Total Commandes", statOrdersToday: "Aujourd'hui", statOrdersWeek: "Semana", statOrdersMonth: "Mois", btnEditProfile: "⚙️ Éditer Profil", modalConfirmTitle: "Confirmation", btnAccept: "Accepter", printListTitle: "Liste des Livraisons", thDate: "Date", thTime: "Heure", thAmount: "Montant", msgInvalidAmount: "Montant invalide", msgInvalidExpense: "Montant invalide", msgInvalidProfile: "Nom et ID requis", msgNoDataExport: "Aucune donnée à exporter.", msgNoDeliveriesToday: "Pas de livraisons", msgNoExpensesToday: "Pas de dépenses", msgNoDeliveriesHistory: "Pas de livraisons", msgNoExpensesHistory: "Pas de dépenses", confirmDeleteDelivery: "Supprimer livraison?", confirmDeleteExpense: "Supprimer dépense?", splashSub: "Chargement...", msgDownloadInfo: "📁 Fichier sauvegardé.", msgBioSuccess: "Verrou activé.", msgBioError: "Erreur.", msgBioUnauth: "Non vérifié." },
             de: { loginSub: "Anmelden", loginEmailPh: "E-Mail", loginPassPh: "Passwort", btnLogin: "Einloggen", btnRegister: "Konto erstellen", expiredTitle: "⚠️ Lizenz abgelaufen", expiredSub: "Ihre Lizenz ist beendet.", btnLogout: "Abmelden", configTitle: "Konfiguration", configSub: "Daten eingeben", placeholderNombre: "Vorname", placeholderApellido: "Nachname", placeholderCedula: "Ausweis", startWeekLabel: "Woche beginnt am:", optMon: "Montag", optTue: "Dienstag", optWed: "Mittwoch", optThu: "Donnerstag", optFri: "Freitag", optSat: "Samstag", optSun: "Sonntag", securityLabel: "Sicherheit:", btnEnableBio: "🔒 Sperre aktivieren", btnDisableBio: "🔓 Sperre deaktivieren", authTitle: "Willkommen", authSub: "Zum Starten berühren", btnSaveConfig: "Speichern", tabDeliveries: "📦 Lieferungen", tabExpenses: "⛽ Ausgaben", tabChart: "📊 Grafik", regDeliveryTitle: "Lieferung erfassen", regDeliverySub: "Betrag eingeben", placeholderMonto: "Betrag ($)", placeholderPedido: "Bestellnummer (opt.)", placeholderNota: "Notiz (optional)", btnAddDelivery: "+ Lieferung hinzufügen", btnEditDelivery: "Editieren Änderungen", btnCancelEdit: "Abbrechen", todaySummary: "Heute Zusammenfassung", statDeliveries: "Lieferungen", statTotalToday: "Gesamt Heute", yesterdaySummary: "Gestern Zusammenfassung", statDeliveriesYesterday: "Lieferungen", statTotalYesterday: "Gesamt Gestern", weekSummary: "Wochenübersicht", statTotalWeek: "Gesamt Woche", statDaysWorked: "Arbeitstage", monthSummary: "Monatsübersicht", statTotalMonth: "Gesamt Monat", yearSummary: "Jahresübersicht", statTotalYear: "Gesamt Jahr", btnPrint: "🖨️ Drucken / PDF", btnAllHistory: "📋 Verlauf anzeigen", btnAllExpensesHistory: "📋 Ausgaben anzeigen", btnExportExcel: "📊 Excel-Export", historyScreenTitle: "Lieferverlauf", expensesHistoryScreenTitle: "Ausgabenverlauf", btnBack: "← Zurück", btnFilter: "Filtern", exportSub: "Dateiname:", btnCancel: "Abbrechen", btnDownload: "Herunterladen", btnContinue: "Weiter", modalExcelTitle: "Excel-Export", modalExcelDesc: "Drücken Sie weiter.", btnSuffix: "Suffix", btnOverwrite: "Überschreiben", regExpenseTitle: "Ausgabe erfassen", regExpenseSub: "Typ auswählen", optGas: "⛽ Benzin", optFood: "🍔 Essen", btnAddExpense: "+ Ausgabe", todayExpenses: "Ausgaben Heute", statGasToday: "Benzin Heute", statFoodToday: "Essen Heute", weekExpenses: "Ausgaben Woche", statGasWeek: "Benzin Woche", statFoodWeek: "Essen Woche", monthExpenses: "Ausgaben Monat", statGasMonth: "Benzin Monat", statFoodMonth: "Essen Monat", chartTitle: "Visuelle Bilanz", chartSub: "Einnahmen vs Ausgaben", chartOrdersTitle: "Bestellungen", statOrdersToday: "Heute", statOrdersWeek: "Woche", statOrdersMonth: "Monat", btnEditProfile: "⚙️ Profil bearbeiten", modalConfirmTitle: "Bestätigung", btnAccept: "Akzeptieren", printListTitle: "Lieferliste", thDate: "Datum", thTime: "Zeit", thAmount: "Betrag", msgInvalidAmount: "Ungültiger Betrag", msgInvalidExpense: "Ungültiger Betrag", msgInvalidProfile: "Name und ID erforderlich", msgNoDataExport: "Keine Daten.", msgNoDeliveriesToday: "Keine Lieferungen", msgNoExpensesToday: "Keine Ausgaben", msgNoDeliveriesHistory: "Keine Lieferungen", msgNoExpensesHistory: "Keine Ausgaben", confirmDeleteDelivery: "Lieferung löschen?", confirmDeleteExpense: "Ausgabe löschen?", splashSub: "Laden...", msgDownloadInfo: "📁 Gespeichert.", msgBioSuccess: "Sperre aktiv.", msgBioError: "Fehler.", msgBioUnauth: "Nicht verifiziert." },
-            it: { loginSub: "Accedi", loginEmailPh: "Email", loginPassPh: "Password", btnLogin: "Login", btnRegister: "Crea Account", expiredTitle: "⚠️ Licenza scaduta", expiredSub: "La licenza è terminata.", btnLogout: "Esci", configTitle: "Configurazione", configSub: "Inserisci i dati", placeholderNombre: "Nome", placeholderApellido: "Cognome", placeholderCedula: "Documento", startWeekLabel: "Inizio settimana:", optMon: "Lunedì", optTue: "Martedì", optWed: "Mercoledì", optThu: "Giovedì", optFri: "Venerdì", optSat: "Sabato", optSun: "Domenica", securityLabel: "Sicurezza:", btnEnableBio: "🔒 Attiva Blocco", btnDisableBio: "🔓 Disattiva Blocco", authTitle: "Benvenuto", authSub: "Tocca per iniziare", btnSaveConfig: "Salva", tabDeliveries: "📦 Consegne", tabExpenses: "⛽ Spese", tabChart: "📊 Grafico", regDeliveryTitle: "Registra Consegna", regDeliverySub: "Inserisci importo", placeholderMonto: "Importo ($)", placeholderPedido: "N. Ordine (opz.)", placeholderNota: "Nota (opzionale)", btnAddDelivery: "+ Aggiungi Consegna", btnEditDelivery: "Modifica Cambiamenti", btnCancelEdit: "Annulla", todaySummary: "Riepilogo Oggi", statDeliveries: "Consegne", statTotalToday: "Totale Oggi", yesterdaySummary: "Riepilogo di Ieri", statDeliveriesYesterday: "Consegne", statTotalYesterday: "Totale Ieri", weekSummary: "Riepilogo Settimana", statTotalWeek: "Totale Settimana", statDaysWorked: "Giorni lavorati", monthSummary: "Riepilogo Mese", statTotalMonth: "Totale Mese", yearSummary: "Riepilogo Anno", statTotalYear: "Totale Anno", btnPrint: "🖨️ Stampa / PDF", btnAllHistory: "📋 Vedi Cronologia", btnAllExpensesHistory: "📋 Vedi Spese", btnExportExcel: "📊 Esporta Excel", historyScreenTitle: "Cronologia Consegne", expensesHistoryScreenTitle: "Cronologia Spese", btnBack: "← Indietro", btnFilter: "Filtra", exportSub: "Nome file:", btnCancel: "Annulla", btnDownload: "Scarica", btnContinue: "Continua", modalExcelTitle: "Esporta Excel", modalExcelDesc: "Premi continua.", btnSuffix: "Suffisso", btnOverwrite: "Sovrascrivi", regExpenseTitle: "Registra Spesa", regExpenseSub: "Seleziona tipo", optGas: "⛽ Benzina", optFood: "🍔 Cibo", btnAddExpense: "+ Aggiungi", todayExpenses: "Spese Oggi", statGasToday: "Benzina Oggi", statFoodToday: "Cibo Oggi", weekExpenses: "Spese Settimana", statGasWeek: "Benzina Set", statFoodWeek: "Cibo Set", monthExpenses: "Spese Mese", statGasMonth: "Benzina Mese", statFoodMonth: "Cibo Mese", chartTitle: "Bilancio Visivo", chartSub: "Guadagni vs Spese", chartOrdersTitle: "Totale Ordini", statOrdersToday: "Oggi", statOrdersWeek: "Settimana", statOrdersMonth: "Mese", btnEditProfile: "⚙️ Modifica Profilo", modalConfirmTitle: "Conferma", btnAccept: "Accetta", printListTitle: "Lista Consegne", thDate: "Data", thTime: "Ora", thAmount: "Importo", msgInvalidAmount: "Importo non valido", msgInvalidExpense: "Importo non valido", msgInvalidProfile: "Nome e ID richiesti", msgNoDataExport: "Nessun dato.", msgNoDeliveriesToday: "Nessuna consegna", msgNoExpensesToday: "Nessuna spesa", msgNoDeliveriesHistory: "Nessuna consegna", msgNoExpensesHistory: "Nessuna spesa", confirmDeleteDelivery: "Eliminare consegna?", confirmDeleteExpense: "Eliminare spesa?", splashSub: "Caricamento...", msgDownloadInfo: "📁 Salvato.", msgBioSuccess: "Blocco attivo.", msgBioError: "Errore.", msgBioUnauth: "Non verificato." },
+            it: { loginSub: "Accedi", loginEmailPh: "Email", loginPassPh: "Password", btnLogin: "Login", btnRegister: "Crea Account", expiredTitle: "⚠️️ Licenza scaduta", expiredSub: "La licenza è terminata.", btnLogout: "Esci", configTitle: "Configurazione", configSub: "Inserisci i dati", placeholderNombre: "Nome", placeholderApellido: "Cognome", placeholderCedula: "Documento", startWeekLabel: "Inizio settimana:", optMon: "Lunedì", optTue: "Martedì", optWed: "Mercoledì", optThu: "Giovedì", optFri: "Venerdì", optSat: "Sabato", optSun: "Domenica", securityLabel: "Sicurezza:", btnEnableBio: "🔒 Attiva Blocco", btnDisableBio: "🔓 Disattiva Blocco", authTitle: "Benvenuto", authSub: "Tocca per iniziare", btnSaveConfig: "Salva", tabDeliveries: "📦 Consegne", tabExpenses: "⛽ Spese", tabChart: "📊 Grafico", regDeliveryTitle: "Registra Consegna", regDeliverySub: "Inserisci importo", placeholderMonto: "Importo ($)", placeholderPedido: "N. Ordine (opz.)", placeholderNota: "Nota (opzionale)", btnAddDelivery: "+ Aggiungi Consegna", btnEditDelivery: "Modifica Cambiamenti", btnCancelEdit: "Annulla", todaySummary: "Riepilogo Oggi", statDeliveries: "Consegne", statTotalToday: "Totale Oggi", yesterdaySummary: "Riepilogo di Ieri", statDeliveriesYesterday: "Consegne", statTotalYesterday: "Totale Ieri", weekSummary: "Riepilogo Settimana", statTotalWeek: "Totale Settimana", statDaysWorked: "Giorni lavorati", monthSummary: "Riepilogo Mese", statTotalMonth: "Totale Mese", yearSummary: "Riepilogo Anno", statTotalYear: "Totale Anno", btnPrint: "🖨️ Stampa / PDF", btnAllHistory: "📋 Vedi Cronologia", btnAllExpensesHistory: "📋 Vedi Spese", btnExportExcel: "📊 Esporta Excel", historyScreenTitle: "Cronologia Consegne", expensesHistoryScreenTitle: "Cronologia Spese", btnBack: "← Indietro", btnFilter: "Filtra", exportSub: "Nome file:", btnCancel: "Annulla", btnDownload: "Scarica", btnContinue: "Continua", modalExcelTitle: "Esporta Excel", modalExcelDesc: "Premi continua.", btnSuffix: "Suffisso", btnOverwrite: "Sovrascrivi", regExpenseTitle: "Registra Spesa", regExpenseSub: "Seleziona tipo", optGas: "⛽ Benzina", optFood: "🍔 Cibo", btnAddExpense: "+ Aggiungi", todayExpenses: "Spese Oggi", statGasToday: "Benzina Oggi", statFoodToday: "Cibo Oggi", weekExpenses: "Spese Settimana", statGasWeek: "Benzina Set", statFoodWeek: "Cibo Set", monthExpenses: "Spese Mese", statGasMonth: "Benzina Mese", statFoodMonth: "Cibo Mese", chartTitle: "Bilancio Visivo", chartSub: "Guadagni vs Spese", chartOrdersTitle: "Totale Ordini", statOrdersToday: "Oggi", statOrdersWeek: "Settimana", statOrdersMonth: "Mese", btnEditProfile: "⚙️ Modifica Profilo", modalConfirmTitle: "Conferma", btnAccept: "Accetta", printListTitle: "Lista Consegne", thDate: "Data", thTime: "Ora", thAmount: "Importo", msgInvalidAmount: "Importo non valido", msgInvalidExpense: "Importo non valido", msgInvalidProfile: "Nome e ID richiesti", msgNoDataExport: "Nessun dato.", msgNoDeliveriesToday: "Nessuna consegna", msgNoExpensesToday: "Nessuna spesa", msgNoDeliveriesHistory: "Nessuna consegna", msgNoExpensesHistory: "Nessuna spesa", confirmDeleteDelivery: "Eliminare consegna?", confirmDeleteExpense: "Eliminare spesa?", splashSub: "Caricamento...", msgDownloadInfo: "📁 Salvato.", msgBioSuccess: "Blocco attivo.", msgBioError: "Errore.", msgBioUnauth: "Non verificato." },
             ja: { loginSub: "ログイン", loginEmailPh: "メール", loginPassPh: "パスワード", btnLogin: "ログイン", btnRegister: "アカウント作成", expiredTitle: "⚠️ ライセンス期限切れ", expiredSub: "ライセンスが終了しました。", btnLogout: "ログアウト", configTitle: "設定", configSub: "データを入力", placeholderNombre: "名", placeholderApellido: "姓", placeholderCedula: "身分証明書", startWeekLabel: "週の始まり:", optMon: "月曜日", optTue: "火曜日", optWed: "水曜日", optThu: "木曜日", optFri: "金曜日", optSat: "土曜日", optSun: "日曜日", securityLabel: "セキュリティ:", btnEnableBio: "🔒 ロックを有効化", btnDisableBio: "🔓 ロックを無効化", authTitle: "ようこそ", authSub: "指紋をタッチ", btnSaveConfig: "保存", tabDeliveries: "📦 配達", tabExpenses: "⛽ 経費", tabChart: "📊 グラフ", regDeliveryTitle: "配達を記録", regDeliverySub: "金額を入力", placeholderMonto: "金額 ($)", placeholderPedido: "注文番号 (任意)", placeholderNota: "メモ (任意)", btnAddDelivery: "+ 配達を追加", btnEditDelivery: "編集 保存", btnCancelEdit: "キャンセル", todaySummary: "今日の概要", statDeliveries: "配達数", statTotalToday: "今日の合計", yesterdaySummary: "昨日の概要", statDeliveriesYesterday: "配達数", statTotalYesterday: "昨日の合計", weekSummary: "週の概要", statTotalWeek: "週の合計", statDaysWorked: "稼働日数", monthSummary: "月の概要", statTotalMonth: "月の合計", yearSummary: "年の概要", statTotalYear: "年の合計", btnPrint: "🖨️ 印刷 / PDF", btnAllHistory: "📋 履歴を見る", btnAllExpensesHistory: "📋 経費を見る", btnExportExcel: "📊 Excel出力", historyScreenTitle: "配達履歴", expensesHistoryScreenTitle: "経費履歴", btnBack: "← 戻る", btnFilter: "フィルター", exportSub: "ファイル名:", btnCancel: "キャンセル", btnDownload: "ダウンロード", btnContinue: "続行", modalExcelTitle: "Excel出力", modalExcelDesc: "続行を押してください", btnSuffix: "接尾辞", btnOverwrite: "上書き", regExpenseTitle: "経費を記録", regExpenseSub: "種類を選択", optGas: "⛽ ガソリン", optFood: "🍔 食事", btnAddExpense: "+ 経費を追加", todayExpenses: "今日の経費", statGasToday: "ガソリン(今日)", statFoodToday: "食事(今日)", weekExpenses: "週の経費", statGasWeek: "ガソリン(週)", statFoodWeek: "食事(週)", monthExpenses: "月の経費", statGasMonth: "ガソリン(月)", statFoodMonth: "食事(月)", chartTitle: "残高", chartSub: "収益 vs 経費", chartOrdersTitle: "合計注文数", statOrdersToday: "今日", statOrdersWeek: "週", statOrdersMonth: "月", btnEditProfile: "⚙️ プロフィール編集", modalConfirmTitle: "確認", btnAccept: "承認", printListTitle: "配達リスト", thDate: "日付", thTime: "時間", thAmount: "金額", msgInvalidAmount: "無効な金額", msgInvalidExpense: "無効な金額", msgInvalidProfile: "名前とIDが必要", msgNoDataExport: "データなし", msgNoDeliveriesToday: "今日の配達なし", msgNoExpensesToday: "今日の経費なし", msgNoDeliveriesHistory: "配達履歴なし", msgNoExpensesHistory: "経費履歴なし", confirmDeleteDelivery: "削除しますか?", confirmDeleteExpense: "削除しますか?", splashSub: "読み込み中...", msgDownloadInfo: "📁 保存されました", msgBioSuccess: "ロック有効", msgBioError: "エラー", msgBioUnauth: "未確認" },
             zh: { loginSub: "登录", loginEmailPh: "电子邮件", loginPassPh: "密码", btnLogin: "登录", btnRegister: "创建账号", expiredTitle: "⚠️ 许可证已过期", expiredSub: "您的许可证已结束。", btnLogout: "登出", configTitle: "配置", configSub: "输入数据", placeholderNombre: "名字", placeholderApellido: "姓氏", placeholderCedula: "身份证件", startWeekLabel: "本周开始于:", optMon: "星期一", optTue: "星期二", optWed: "星期三", optThu: "星期四", optFri: "星期五", optSat: "星期六", optSun: "星期日", securityLabel: "安全:", btnEnableBio: "🔒 启用锁定", btnDisableBio: "🔓 禁用锁定", authTitle: "欢迎", authSub: "触摸指纹", btnSaveConfig: "保存", tabDeliveries: "📦 配送", tabExpenses: "⛽ 费用", tabChart: "📊 图表", regDeliveryTitle: "记录配送", regDeliverySub: "输入金额", placeholderMonto: "金额 ($)", placeholderPedido: "订单号 (可选)", placeholderNota: "备注 (可选)", btnAddDelivery: "+ 添加配送", btnEditDelivery: "编辑 保存", btnCancelEdit: "取消", todaySummary: "今日总结", statDeliveries: "配送数", statTotalToday: "今日总计", yesterdaySummary: "昨日总结", statDeliveriesYesterday: "配送数", statTotalYesterday: "昨日总计", weekSummary: "本周总结", statTotalWeek: "本周总计", statDaysWorked: "工作天数", monthSummary: "本月总结", statTotalMonth: "本月总计", yearSummary: "年度总结", statTotalYear: "年度总计", btnPrint: "🖨️ 打印 / PDF", btnAllHistory: "📋 查看历史", btnAllExpensesHistory: "📋 查看费用", btnExportExcel: "📊 导出Excel", historyScreenTitle: "配送历史", expensesHistoryScreenTitle: "费用历史", btnBack: "← 返回", btnFilter: "筛选", exportSub: "文件名:", btnCancel: "取消", btnDownload: "下载", btnContinue: "继续", modalExcelTitle: "导出Excel", modalExcelDesc: "点击继续。", btnSuffix: "后缀", btnOverwrite: "覆盖", regExpenseTitle: "记录费用", regExpenseSub: "选择类型", optGas: "⛽ 汽油", optFood: "🍔 食物", btnAddExpense: "+ 添加费用", todayExpenses: "今日费用", statGasToday: "今日汽油", statFoodToday: "今日食物", weekExpenses: "本周费用", statGasWeek: "本周汽油", statFoodWeek: "本周食物", monthExpenses: "本月费用", statGasMonth: "本月汽油", statFoodMonth: "本月食物", chartTitle: "视觉余额", chartSub: "收入 vs 费用", chartOrdersTitle: "总订单", statOrdersToday: "今日", statOrdersWeek: "本周", statOrdersMonth: "本月", btnEditProfile: "⚙️ 编辑配置", modalConfirmTitle: "确认", btnAccept: "接受", printListTitle: "配送列表", thDate: "日期", thTime: "时间", thAmount: "金额", msgInvalidAmount: "无效金额", msgInvalidExpense: "无效金额", msgInvalidProfile: "需要姓名和证件", msgNoDataExport: "没有数据。", msgNoDeliveriesToday: "今日无配送", msgNoExpensesToday: "今日无费用", msgNoDeliveriesHistory: "无配送记录", msgNoExpensesHistory: "无费用记录", confirmDeleteDelivery: "删除配送？", confirmDeleteExpense: "删除费用？", splashSub: "加载中...", msgDownloadInfo: "📁 已保存。", msgBioSuccess: "锁定已启用。", msgBioError: "错误。", msgBioUnauth: "未验证。" },
             ru: { loginSub: "Войдите, чтобы продолжить", loginEmailPh: "Электронная почта", loginPassPh: "Пароль", btnLogin: "Войти", btnRegister: "Создать аккаунт", expiredTitle: "⚠️ Лицензия истекла", expiredSub: "Ваша лицензия закончилась.", btnLogout: "Выйти", configTitle: "Настройки профиля", configSub: "Введите ваши данные", placeholderNombre: "Имя", placeholderApellido: "Фамилия", placeholderCedula: "Документ", startWeekLabel: "Начало недели:", optMon: "Понедельник", optTue: "Вторник", optWed: "Среда", optThu: "Четверг", optFri: "Пятница", optSat: "Суббота", optSun: "Воскресенье", securityLabel: "Безопасность:", btnEnableBio: "🔒 Включить блокировку", btnDisableBio: "🔓 Отключить блокировку", authTitle: "Добро пожаловать", authSub: "Коснитесь отпечатка", btnSaveConfig: "Сохранить настройки", tabDeliveries: "📦 Доставки", tabExpenses: "⛽ Расходы", tabChart: "📊 График", regDeliveryTitle: "Записать доставку", regDeliverySub: "Введите сумму", placeholderMonto: "Сумма ($)", placeholderPedido: "Номер заказа (необяз.)", placeholderNota: "Примечание (необяз.)", btnAddDelivery: "+ Добавить доставку", btnEditDelivery: "Изменить Сохранить", btnCancelEdit: "Отмена", todaySummary: "Итоги сегодня", statDeliveries: "Доставки", statTotalToday: "Всего сегодня", yesterdaySummary: "Итоги вчера", statDeliveriesYesterday: "Доставки", statTotalYesterday: "Всего вчера", weekSummary: "Итоги недели", statTotalWeek: "Всего за неделю", statDaysWorked: "Отработано дней", monthSummary: "Итоги месяца", statTotalMonth: "Всего за месяц", yearSummary: "Итоги года", statTotalYear: "Всего за год", btnPrint: "🖨️ Печать / PDF", btnAllHistory: "📋 Вся история", btnAllExpensesHistory: "📋 Все расходы", btnExportExcel: "📊 Экспорт в Excel", historyScreenTitle: "История доставок", expensesHistoryScreenTitle: "История расходов", btnBack: "← Назад", btnFilter: "Фильтр", exportSub: "Имя файла:", btnCancel: "Отмена", btnDownload: "Скачать", btnContinue: "Продолжить", modalExcelTitle: "Экспорт в Excel", modalExcelDesc: "Нажмите продолжить.", btnSuffix: "Суффикс", btnOverwrite: "Перезаписать", regExpenseTitle: "Записать расход", regExpenseSub: "Выберите тип", optGas: "⛽ Бензин", optFood: "🍔 Еда", btnAddExpense: "+ Добавить расход", todayExpenses: "Расходы сегодня", statGasToday: "Бензин сегодня", statFoodToday: "Еда сегодня", weekExpenses: "Расходы за неделю", statGasWeek: "Бензин (нед)", statFoodWeek: "Еда (нед)", monthExpenses: "Расходы за месяц", statGasMonth: "Бензин (мес)", statFoodMonth: "Еда (мес)", chartTitle: "Визуальный баланс", chartSub: "Доходы против расходов", chartOrdersTitle: "Всего заказов", statOrdersToday: "Сегодня", statOrdersWeek: "Неделя", statOrdersMonth: "Месяц", btnEditProfile: "⚙️ Изменить профиль", modalConfirmTitle: "Подтверждение", btnAccept: "Принять", printListTitle: "Список доставок", thDate: "Дата", thTime: "Время", thAmount: "Сумма", msgInvalidAmount: "Неверная сумма", msgInvalidExpense: "Неверная сумма", msgInvalidProfile: "Имя и ID обязательны", msgNoDataExport: "Нет данных.", msgNoDeliveriesToday: "Сегодня нет доставок", msgNoExpensesToday: "Сегодня нет расходов", msgNoDeliveriesHistory: "Нет истории доставок", msgNoExpensesHistory: "Нет истории расходов", confirmDeleteDelivery: "Удалить доставку?", confirmDeleteExpense: "Удалить расход?", splashSub: "Загрузка...", msgDownloadInfo: "📁 Сохранено.", msgBioSuccess: "Блокировка включена.", msgBioError: "Ошибка.", msgBioUnauth: "Не подтверждено." },
-            ar: { loginSub: "تسجيل الدخول للمتابعة", loginEmailPh: "البريد الإلكتروني", loginPassPh: "كلمة المرور", btnLogin: "تسجيل الدخول", btnRegister: "إنشاء حساب", expiredTitle: "⚠️ انتهت صلاحية الترخيص", expiredSub: "انتهت رخصتك.", btnLogout: "تسجيل الخروج", configTitle: "إعداد الملف الشخصي", configSub: "أدخل بياناتك", placeholderNombre: "الاسم", placeholderApellido: "اللقب", placeholderCedula: "رقم الهوية", startWeekLabel: "يبدأ الأسبوع في:", optMon: "الإثنين", optTue: "الثلاثاء", optWed: "الأربعاء", optThu: "الخميس", optFri: "الجمعة", optSat: "السبت", optSun: "الأحد", securityLabel: "الحماية:", btnEnableBio: "🔒 تفعيل القفل", btnDisableBio: "🔓 إلغاء القفل", authTitle: "مرحباً بك", authSub: "المس البصمة للبدء", btnSaveConfig: "حفظ الإعدادات", tabDeliveries: "📦 التوصيلات", tabExpenses: "⛽ المصروفات", tabChart: "📊 الرسم البياني", regDeliveryTitle: "تسجيل توصيل", regDeliverySub: "أدخل المبلغ", placeholderMonto: "المبلغ ($)", placeholderPedido: "رقم الطلب (اختياري)", placeholderNota: "ملاحظة (اختياري)", btnAddDelivery: "+ إضافة توصيل", btnEditDelivery: "تعديل حفظ", btnCancelEdit: "إلغاء", todaySummary: "ملخص اليوم", statDeliveries: "التوصيلات", statTotalToday: "الإجمالي اليوم", yesterdaySummary: "ملخص الأمس", statDeliveriesYesterday: "التوصيلات", statTotalYesterday: "الإجمالي أمس", weekSummary: "الملخص الأسبوعي", statTotalWeek: "إجمالي الأسبوع", statDaysWorked: "أيام العمل", monthSummary: "الملخص الشهري", statTotalMonth: "إجمالي الشهر", yearSummary: "الملخص السنوي", statTotalYear: "إجمالي السنة", btnPrint: "🖨️ طباعة / PDF", btnAllHistory: "📋 عرض السجل", btnAllExpensesHistory: "📋 عرض المصروفات", btnExportExcel: "📊 تصدير إلى Excel", historyScreenTitle: "سجل التوصيلات", expensesHistoryScreenTitle: "سجل المصروفات", btnBack: "← رجوع", btnFilter: "تصفية", exportSub: "اسم الملف:", btnCancel: "إلغاء", btnDownload: "تحميل", btnContinue: "متابعة", modalExcelTitle: "تصدير Excel", modalExcelDesc: "اضغط متابعة للحفظ.", btnSuffix: "إضافة لاحقة", btnOverwrite: "استبدال", regExpenseTitle: "تسجيل مصروف", regExpenseSub: "حدد النوع", optGas: "⛽ بنزين", optFood: "🍔 طعام", btnAddExpense: "+ إضافة مصروف", todayExpenses: "مصروفات اليوم", statGasToday: "بنزين اليوم", statFoodToday: "طعام اليوم", weekExpenses: "المصروفات الأسبوعية", statGasWeek: "بنزين الأسبوع", statFoodWeek: "طعام الأسبوع", monthExpenses: "المصروفات الشهرية", statGasMonth: "بنزين الشهر", statFoodMonth: "طعام الشهر", chartTitle: "الرصيد المرئي", chartSub: "الأرباح مقابل المصروفات", chartOrdersTitle: "إجمالي الطلبات", statOrdersToday: "اليوم", statOrdersWeek: "الأسبوع", statOrdersMonth: "الشهر", btnEditProfile: "⚙️ تعديل الملف الشخصي", modalConfirmTitle: "تأكيد", btnAccept: "موافق", printListTitle: "قائمة التوصيلات", thDate: "التاريخ", thTime: "الوقت", thAmount: "المبلغ", msgInvalidAmount: "مبلغ غير صالح", msgInvalidExpense: "مبلغ غير صالح", msgInvalidProfile: "الاسم ورقم الهوية مطلوبان", msgNoDataExport: "لا توجد بيانات.", msgNoDeliveriesToday: "لا توجد توصيلات اليوم", msgNoExpensesToday: "لا توجد مصروفات اليوم", msgNoDeliveriesHistory: "لا يوجد سجل توصيلات", msgNoExpensesHistory: "لا يوجد سجل مصروفات", confirmDeleteDelivery: "هل تريد حذف التوصيل؟", confirmDeleteExpense: "هل تريد حذف المصروف؟", splashSub: "جاري التحميل...", msgDownloadInfo: "📁 تم الحفظ.", msgBioSuccess: "تم تفعيل القفل.", msgBioError: "خطأ.", msgBioUnauth: "لم يتم التحقق." }
+            ar: { loginSub: "تسجيل الدخول للمتابعة", loginEmailPh: "البريد الإلكتروني", loginPassPh: "كلمة المرور", btnLogin: "تسجيل الدخول", btnRegister: "إنشاء حساب", expiredTitle: "⚠️ انتهت صلاحية الترخيص", expiredSub: "انتهت رخصتك.", btnLogout: "تسجيل الخروج", configTitle: "إعداد الملف الشخصي", configSub: "أدخل بياناتك", placeholderNombre: "الاسم", placeholderApellido: "اللقب", placeholderCedula: "رقم الهوية", startWeekLabel: "يبدأ الأسبوع في:", optMon: "الإثنين", optTue: "الثلاثاء", optWed: "الأربعاء", optThu: "الخميس", optFri: "الجمعة", optSat: "السبت", optSun: "الأحد", securityLabel: "الحماية:", btnEnableBio: "🔒 تفعيل القفل", btnDisableBio: "🔓 إلغاء القفل", authTitle: "مرحباً بك", authSub: "المس البصمة للبدء", btnSaveConfig: "حفظ الإعدادات", tabDeliveries: "📦 التوصيلات", tabExpenses: "⛽ المصروفات", tabChart: "📊 الرسم البياني", regDeliveryTitle: "تسجيل توصيل", regDeliverySub: "أدخل المبلغ", placeholderMonto: "المبلغ ($)", placeholderPedido: "رقم الطلب (اختياري)", placeholderNota: "ملاحظة (اختياري)", btnAddDelivery: "+ إضافة توصيل", btnEditDelivery: "تعديل حفظ", btnCancelEdit: "إلغاء", todaySummary: "ملخص اليوم", statDeliveries: "التوصيلات", statTotalToday: "الإجمالي اليوم", yesterdaySummary: "ملخص الأمس", statDeliveriesYesterday: "التوصيلات", statTotalYesterday: "الإجمالي أمس", weekSummary: "الملخص الأسبوعي", statTotalWeek: "إجمالي الأسبوع", statDaysWorked: "أيام العمل", monthSummary: "الملخص الشهري", statTotalMonth: "إجمالي الشهر", yearSummary: "الملخص السنوي", statTotalYear: "إجمالي السنة", btnPrint: "🖨️ طباعة / PDF", btnAllHistory: "📋 عرض السجل", btnAllExpensesHistory: "📋 عرض المصروفات", btnExportExcel: "📊 تصدير إلى Excel", historyScreenTitle: "سجل التوصيلات", expensesHistoryScreenTitle: "سجل المصروفات", btnBack: "← رجوع", btnFilter: "تصفية", exportSub: "اسم الملف:", btnCancel: "إلغاء", btnDownload: "تحميل", btnContinue: "متابعة", modalExcelTitle: "تصدير Excel", modalExcelDesc: "اضغط متابعة للحفظ.", btnSuffix: "إضافة لاحقة", btnOverwrite: "استبدال", regExpenseTitle: "تسجيل مصروف", regExpenseSub: "حدد النوع", optGas: "⛽ بنزين", optFood: "🍔 طعام", btnAddExpense: "+ إضافة مصروف", todayExpenses: "مصروفات اليوم", statGasToday: "بنزين اليوم", statFoodToday: "طعام اليوم", weekExpenses: "المصروفات الأسبوعية", statGasWeek: "بنزين الأسبوع", statFoodWeek: "طعام الأسبوع", monthExpenses: "المصروفات الشهري", statGasMonth: "بنزين الشهر", statFoodMonth: "طعام الشهر", chartTitle: "الرصيد المرئي", chartSub: "الأرباح مقابل المصروفات", chartOrdersTitle: "إجمالي الطلبات", statOrdersToday: "اليوم", statOrdersWeek: "الأسبوع", statOrdersMonth: "الشهر", btnEditProfile: "⚙️ تعديل الملف الشخصي", modalConfirmTitle: "تأكيد", btnAccept: "موافق", printListTitle: "قائمة التوصيلات", thDate: "التاريخ", thTime: "الوقت", thAmount: "المبلغ", msgInvalidAmount: "مبلغ غير صالح", msgInvalidExpense: "مبلغ غير صالح", msgInvalidProfile: "الاسم ورقم الهوية مطلوبان", msgNoDataExport: "لا توجد بيانات.", msgNoDeliveriesToday: "لا توجد توصيلات اليوم", msgNoExpensesToday: "لا توجد مصروفات اليوم", msgNoDeliveriesHistory: "لا يوجد سجل توصيلات", msgNoExpensesHistory: "لا يوجد سجل مصروفات", confirmDeleteDelivery: "هل تريد حذف التوصيل؟", confirmDeleteExpense: "هل تريد حذف المصروف؟", splashSub: "جاري التحميل...", msgDownloadInfo: "📁 تم الحفظ.", msgBioSuccess: "تم تفعيل القفل.", msgBioError: "خطأ.", msgBioUnauth: "لم يتم التحقق." }
         };
 
         const langNames = { es: 'Español', en: 'English', pt: 'Português', fr: 'Français', de: 'Deutsch', it: 'Italiano', ja: '日本語', zh: '中文', ru: 'Русский', ar: 'العربية' };
@@ -986,6 +1041,29 @@
             document.getElementById('btnSound').textContent = soundEnabled ? '🔊' : '🔇';
             applyLanguage();
 
+            // MANEJO DEL BOTÓN "ATRÁS" EN ANDROID
+            window.addEventListener('popstate', (e) => {
+                const histTot = document.getElementById('historialTotalScreen');
+                const histGas = document.getElementById('historialGastosScreen');
+                const adminScr = document.getElementById('adminScreen');
+                const adminDet = document.getElementById('adminUserDetailScreen');
+                const perfCard = document.getElementById('perfilCard');
+
+                if (adminDet && adminDet.style.display === 'block') {
+                    adminDet.style.display = 'none';
+                } else if (adminScr && adminScr.style.display === 'block') {
+                    adminScr.style.display = 'none';
+                } else if (histTot && histTot.style.display === 'block') {
+                    histTot.style.display = 'none';
+                } else if (histGas && histGas.style.display === 'block') {
+                    histGas.style.display = 'none';
+                } else if (perfCard && perfCard.style.display === 'block' && window.perfil && window.perfil.nombre) {
+                    perfCard.style.display = 'none';
+                    document.getElementById('mainApp').style.display = 'block';
+                }
+            });
+
+            // SPLASH SCREEN MEJORADO: RÁPIDO Y FLUIDO (1 SEGUNDO)
             const safetyTimeout = setTimeout(() => {
                 if (!window.authChecked || !window.splashFinished) {
                     window.authChecked = true; window.splashFinished = true;
@@ -993,7 +1071,7 @@
                     if (splash) splash.style.display = 'none';
                     if (window.updateMainUI) window.updateMainUI();
                 }
-            }, 4000);
+            }, 1500);
 
             setTimeout(() => {
                 clearTimeout(safetyTimeout);
@@ -1004,9 +1082,9 @@
                     setTimeout(() => { 
                         splash.style.display = 'none'; 
                         if(window.updateMainUI) window.updateMainUI();
-                    }, 500);
+                    }, 300);
                 }
-            }, 2000);
+            }, 1000);
         });
 
         function bufferEncode(value) { return btoa(String.fromCharCode.apply(null, new Uint8Array(value))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, ""); }
@@ -1077,7 +1155,11 @@
             inicializarGrafico(); actualizarInterfaz();
         }
 
-        function abrirHistorialTotal() { document.getElementById('historialTotalScreen').style.display = 'block'; renderizarHistorialTotal(); }
+        function abrirHistorialTotal() { 
+            history.pushState({ screen: 'historialTotal' }, '');
+            document.getElementById('historialTotalScreen').style.display = 'block'; 
+            renderizarHistorialTotal(); 
+        }
         function cerrarHistorialTotal() { document.getElementById('historialTotalScreen').style.display = 'none'; }
         
         function renderizarHistorialTotal() {
@@ -1101,11 +1183,14 @@
             const ayerStr = formatearFechaISO(ayerObj);
             const localeStr = currentLang === 'es' ? 'es-ES' : (currentLang === 'en' ? 'en-US' : 'es-ES');
 
-            const diaInicioConfig = window.perfil?.inicioSemana || 1;
+            // CORRECCIÓN SEMANAL EXACTA
+            const diaInicioConfig = window.perfil?.inicioSemana ?? 1;
             const hoyBase = new Date(hoyObj.getFullYear(), hoyObj.getMonth(), hoyObj.getDate());
             const dayOffset = (hoyBase.getDay() - diaInicioConfig + 7) % 7;
             const startOfWeek = new Date(hoyBase); startOfWeek.setDate(hoyBase.getDate() - dayOffset);
+            startOfWeek.setHours(0,0,0,0);
             const endOfWeek = new Date(startOfWeek); endOfWeek.setDate(startOfWeek.getDate() + 6);
+            endOfWeek.setHours(23,59,59,999);
 
             let totAll = 0, countAll = 0, totHoy = 0, countHoy = 0, totAyer = 0, countAyer = 0;
             let totSem = 0, countSem = 0, totMes = 0, countMes = 0;
@@ -1117,7 +1202,8 @@
                 if (d.fecha === ayerStr) { totAyer += d.monto; countAyer++; }
                 
                 const [y, m, day] = d.fecha.split('-');
-                const dDate = new Date(y, m - 1, day);
+                const dDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(day), 12, 0, 0);
+                
                 if (dDate >= startOfWeek && dDate <= endOfWeek) {
                     totSem += d.monto; countSem++;
                 }
@@ -1172,7 +1258,11 @@
             });
         }
 
-        function abrirHistorialGastos() { document.getElementById('historialGastosScreen').style.display = 'block'; renderizarHistorialGastos(); }
+        function abrirHistorialGastos() { 
+            history.pushState({ screen: 'historialGastos' }, '');
+            document.getElementById('historialGastosScreen').style.display = 'block'; 
+            renderizarHistorialGastos(); 
+        }
         function cerrarHistorialGastos() { document.getElementById('historialGastosScreen').style.display = 'none'; }
         function renderizarHistorialGastos() {
             const listaEl = document.getElementById('listaHistorialGastos'); listaEl.innerHTML = '';
@@ -1297,6 +1387,7 @@
         }
 
         function editarPerfil() {
+            history.pushState({ screen: 'perfil' }, '');
             if (window.perfil) {
                 document.getElementById('perfilNombre').value = window.perfil.nombre || '';
                 document.getElementById('perfilApellido').value = window.perfil.apellido || '';
@@ -1526,16 +1617,22 @@
                 });
             }
 
-            const diaInicioConfig = window.perfil.inicioSemana; const hoyBase = new Date(hoyObj.getFullYear(), hoyObj.getMonth(), hoyObj.getDate());
-            const dayOffset = (hoyBase.getDay() - diaInicioConfig + 7) % 7; const startOfWeek = new Date(hoyBase); startOfWeek.setDate(hoyBase.getDate() - dayOffset);
+            const diaInicioConfig = window.perfil.inicioSemana ?? 1; 
+            const hoyBase = new Date(hoyObj.getFullYear(), hoyObj.getMonth(), hoyObj.getDate());
+            const dayOffset = (hoyBase.getDay() - diaInicioConfig + 7) % 7; 
+            const startOfWeek = new Date(hoyBase); startOfWeek.setDate(hoyBase.getDate() - dayOffset);
+            startOfWeek.setHours(0,0,0,0);
             const endOfWeek = new Date(startOfWeek); endOfWeek.setDate(startOfWeek.getDate() + 6);
-            
+            endOfWeek.setHours(23,59,59,999);
+
             document.getElementById('rangoSemanaSub').innerText = `(${formatDDMMYYYY(startOfWeek)} - ${formatDDMMYYYY(endOfWeek)})`;
 
             const entregasSemana = window.datos.filter(d => {
                 const esGasto = d.tipo === 'gasto' || d.tipoGasto !== undefined || d.tipo === 'gasolina' || d.tipo === 'comida' || d.categoria === 'gasolina' || d.categoria === 'comida';
                 if (esGasto || d.monto <= 0) return false;
-                const [y, m, day] = d.fecha.split('-'); const dDate = new Date(y, m - 1, day); return dDate >= startOfWeek && dDate <= endOfWeek;
+                const [y, m, day] = d.fecha.split('-'); 
+                const dDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(day), 12, 0, 0); 
+                return dDate >= startOfWeek && dDate <= endOfWeek;
             });
             document.getElementById('totalSemana').innerText = `$${entregasSemana.reduce((a, b) => a + b.monto, 0).toFixed(2)}`;
             document.getElementById('diasSemana').innerText = new Set(entregasSemana.map(d => d.fecha)).size;
@@ -1578,7 +1675,10 @@
 
             const gastosSemana = window.datos.filter(d => { 
                 const esGasto = d.tipo === 'gasto' || d.tipoGasto !== undefined || d.tipo === 'gasolina' || d.tipo === 'comida' || d.categoria === 'gasolina' || d.categoria === 'comida';
-                if (!esGasto) return false; const [y, m, day] = d.fecha.split('-'); const dDate = new Date(y, m - 1, day); return dDate >= startOfWeek && dDate <= endOfWeek; 
+                if (!esGasto) return false; 
+                const [y, m, day] = d.fecha.split('-'); 
+                const dDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(day), 12, 0, 0); 
+                return dDate >= startOfWeek && dDate <= endOfWeek; 
             });
             document.getElementById('totalGasSemana').innerText = `$${gastosSemana.filter(d => (d.tipoGasto || d.tipo || d.categoria) === 'gasolina').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
             document.getElementById('totalComidaSemana').innerText = `$${gastosSemana.filter(d => (d.tipoGasto || d.tipo || d.categoria) === 'comida').reduce((a,b)=>a+b.monto,0).toFixed(2)}`;
