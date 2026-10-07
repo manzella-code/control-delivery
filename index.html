@@ -29,6 +29,13 @@
             // NUEVO: Si hay usuario pero no hemos terminado de verificar su licencia en BD/caché, pausar UI
             if(window.authUser && !window.licenseChecked) return;
 
+            // Ocultar splash solo cuando SÍ vamos a mostrar una pantalla
+            const splashEl = document.getElementById('splashScreen');
+            if (splashEl && splashEl.style.display !== 'none') {
+                splashEl.style.opacity = '0';
+                setTimeout(() => { splashEl.style.display = 'none'; }, 300);
+            }
+
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('expiredScreen').style.display = 'none';
             document.getElementById('connectionRequiredScreen').style.display = 'none';
@@ -1074,25 +1081,31 @@
                 }
             });
 
-            // SPLASH SCREEN MEJORADO: RÁPIDO Y FLUIDO
+            // SPLASH SCREEN MEJORADO
+            const hayPantallaVisible = () => {
+                return ['loginScreen','expiredScreen','connectionRequiredScreen','authScreen','perfilCard','mainApp']
+                    .some(id => {
+                        const el = document.getElementById(id);
+                        return el && el.style.display !== 'none' && el.style.display !== '';
+                    });
+            };
+
+            // Safety timeout largo: si Firebase tarda demasiado (red muy lenta),
+            // forzar mostrar la pantalla de login como último recurso.
             const safetyTimeout = setTimeout(() => {
                 window.splashFinished = true;
-                const splash = document.getElementById('splashScreen');
-                if (splash) splash.style.display = 'none';
                 if (window.updateMainUI) window.updateMainUI();
-            }, 1500);
+                if (!hayPantallaVisible()) {
+                    const splash = document.getElementById('splashScreen');
+                    if (splash) splash.style.display = 'none';
+                    document.getElementById('loginScreen').style.display = 'flex';
+                }
+            }, 8000);
 
             setTimeout(() => {
                 clearTimeout(safetyTimeout);
                 window.splashFinished = true;
-                const splash = document.getElementById('splashScreen');
-                if (splash) {
-                    splash.style.opacity = '0';
-                    setTimeout(() => { 
-                        splash.style.display = 'none'; 
-                        if(window.updateMainUI) window.updateMainUI();
-                    }, 300);
-                }
+                if (window.updateMainUI) window.updateMainUI();
             }, 1000);
         });
 
