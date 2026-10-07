@@ -2,12 +2,12 @@
     <link rel="manifest" href="manifest.json">
     <script>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js?v=1.60.5');
+        navigator.serviceWorker.register('sw.js?v=1.60.6');
       }
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.60.5</title>
+    <title>Control Delivery v1.60.6</title>
     <meta name="theme-color" content="#10b981">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -29,6 +29,13 @@
             // NUEVO: Si hay usuario pero no hemos terminado de verificar su licencia en BD/caché, pausar UI
             if(window.authUser && !window.licenseChecked) return;
 
+            // Ocultar splash solo cuando SÍ vamos a mostrar una pantalla
+            const splashEl = document.getElementById('splashScreen');
+            if (splashEl && splashEl.style.display !== 'none') {
+                splashEl.style.opacity = '0';
+                setTimeout(() => { splashEl.style.display = 'none'; }, 300);
+            } 
+            
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('expiredScreen').style.display = 'none';
             document.getElementById('connectionRequiredScreen').style.display = 'none';
@@ -45,6 +52,7 @@
             } else {
                 verificarPerfil();
             }
+            if (window.actualizarBadgeGlobal) window.actualizarBadgeGlobal();
         };
 
         function traducirErrorFirebase(codigo) {
@@ -670,6 +678,32 @@
         </div>
     </div>
 
+    <!-- VERSION BADGE: Movido dentro de mainApp para garantizar que respeta el flujo debajo del logo -->
+    <!-- BADGE GLOBAL: aparece en pantalla principal y en pantalla de perfil -->
+    <div id="badgeGlobal" class="version-badge" style="display: none;">
+            <span>Versión 1.60.6</span>
+            <div class="header-buttons">
+                <div class="custom-dropdown">
+                    <button id="langDropdownBtn" class="custom-dropdown-btn" onclick="toggleLangMenu()">Español ▾</button>
+                    <div id="langDropdownMenu" class="custom-dropdown-menu">
+                        <div class="custom-dropdown-item" onclick="cambiarIdioma('es')">Español</div>
+                        <div class="custom-dropdown-item" onclick="cambiarIdioma('en')">English</div>
+                        <div class="custom-dropdown-item" onclick="cambiarIdioma('pt')">Português</div>
+                        <div class="custom-dropdown-item" onclick="cambiarIdioma('fr')">Français</div>
+                        <div class="custom-dropdown-item" onclick="cambiarIdioma('de')">Deutsch</div>
+                        <div class="custom-dropdown-item" onclick="cambiarIdioma('it')">Italiano</div>
+                        <div class="custom-dropdown-item" onclick="cambiarIdioma('ja')">日本語</div>
+                        <div class="custom-dropdown-item" onclick="cambiarIdioma('zh')">中文</div>
+                        <div class="custom-dropdown-item" onclick="cambiarIdioma('ru')">Русский</div>
+                        <div class="custom-dropdown-item" onclick="cambiarIdioma('ar')">العربية</div>
+                    </div>
+                </div>
+                <button class="theme-toggle" onclick="toggleSound()" id="btnSound" title="Sonido">🔊</button>
+                <button class="theme-toggle" onclick="toggleDarkMode()" id="btnTheme" title="Modo">🌙</button>
+            </div>
+        </div>
+    
+        
     <!-- PANTALLA DE CONFIGURACIÓN DE PERFIL -->
     <div class="card" id="perfilCard" style="display: none;">
         <h2 data-i18n="configTitle">Configuración de Perfil</h2>
@@ -711,30 +745,7 @@
             <h1 style="font-size: 1.25rem; color: #10b981; margin: 0; font-weight: bold; line-height: 1;">Control Delivery</h1>
         </div>
 
-        <!-- VERSION BADGE: Movido dentro de mainApp para garantizar que respeta el flujo debajo del logo -->
-        <div class="version-badge">
-            <span>Versión 1.60.5</span>
-            <div class="header-buttons">
-                <div class="custom-dropdown">
-                    <button id="langDropdownBtn" class="custom-dropdown-btn" onclick="toggleLangMenu()">Español ▾</button>
-                    <div id="langDropdownMenu" class="custom-dropdown-menu">
-                        <div class="custom-dropdown-item" onclick="cambiarIdioma('es')">Español</div>
-                        <div class="custom-dropdown-item" onclick="cambiarIdioma('en')">English</div>
-                        <div class="custom-dropdown-item" onclick="cambiarIdioma('pt')">Português</div>
-                        <div class="custom-dropdown-item" onclick="cambiarIdioma('fr')">Français</div>
-                        <div class="custom-dropdown-item" onclick="cambiarIdioma('de')">Deutsch</div>
-                        <div class="custom-dropdown-item" onclick="cambiarIdioma('it')">Italiano</div>
-                        <div class="custom-dropdown-item" onclick="cambiarIdioma('ja')">日本語</div>
-                        <div class="custom-dropdown-item" onclick="cambiarIdioma('zh')">中文</div>
-                        <div class="custom-dropdown-item" onclick="cambiarIdioma('ru')">Русский</div>
-                        <div class="custom-dropdown-item" onclick="cambiarIdioma('ar')">العربية</div>
-                    </div>
-                </div>
-                <button class="theme-toggle" onclick="toggleSound()" id="btnSound" title="Sonido">🔊</button>
-                <button class="theme-toggle" onclick="toggleDarkMode()" id="btnTheme" title="Modo">🌙</button>
-            </div>
-        </div>
-
+        
         <div class="tab-container">
             <button class="tab-btn active" onclick="cambiarPestana('deliveries')" data-i18n="tabDeliveries">📦 Deliveries</button>
             <button class="tab-btn" onclick="cambiarPestana('gastos')" data-i18n="tabExpenses">⛽ Gastos</button>
@@ -1072,27 +1083,34 @@
                     perfCard.style.display = 'none';
                     document.getElementById('mainApp').style.display = 'block';
                 }
+                if (window.actualizarBadgeGlobal) window.actualizarBadgeGlobal();
             });
 
-            // SPLASH SCREEN MEJORADO: RÁPIDO Y FLUIDO
+            // SPLASH SCREEN MEJORADO
+            const hayPantallaVisible = () => {
+                return ['loginScreen','expiredScreen','connectionRequiredScreen','authScreen','perfilCard','mainApp']
+                    .some(id => {
+                        const el = document.getElementById(id);
+                        return el && el.style.display !== 'none' && el.style.display !== '';
+                    });
+            };
+
+            // Safety timeout largo: si Firebase tarda demasiado (red muy lenta),
+            // forzar mostrar la pantalla de login como último recurso.
             const safetyTimeout = setTimeout(() => {
                 window.splashFinished = true;
-                const splash = document.getElementById('splashScreen');
-                if (splash) splash.style.display = 'none';
                 if (window.updateMainUI) window.updateMainUI();
-            }, 1500);
+                if (!hayPantallaVisible()) {
+                    const splash = document.getElementById('splashScreen');
+                    if (splash) splash.style.display = 'none';
+                    document.getElementById('loginScreen').style.display = 'flex';
+                }
+            }, 8000);
 
             setTimeout(() => {
                 clearTimeout(safetyTimeout);
                 window.splashFinished = true;
-                const splash = document.getElementById('splashScreen');
-                if (splash) {
-                    splash.style.opacity = '0';
-                    setTimeout(() => { 
-                        splash.style.display = 'none'; 
-                        if(window.updateMainUI) window.updateMainUI();
-                    }, 300);
-                }
+                if (window.updateMainUI) window.updateMainUI();
             }, 1000);
         });
 
@@ -1150,6 +1168,7 @@
                     iniciarAppPrincipal();
                 }
             }
+            if (window.actualizarBadgeGlobal) window.actualizarBadgeGlobal();
         }
 
         function iniciarAppPrincipal() {
@@ -1162,6 +1181,7 @@
             }
 
             inicializarGrafico(); actualizarInterfaz();
+            if (window.actualizarBadgeGlobal) window.actualizarBadgeGlobal();
         }
 
         function abrirHistorialTotal() { 
@@ -1407,6 +1427,7 @@
             }
             document.getElementById('perfilCard').style.display = 'block'; document.getElementById('mainApp').style.display = 'none';
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (window.actualizarBadgeGlobal) window.actualizarBadgeGlobal();
         }
 
         function formatearFechaISO(d) { const yyyy = d.getFullYear(); const mm = String(d.getMonth() + 1).padStart(2, '0'); const dd = String(d.getDate()).padStart(2, '0'); return `${yyyy}-${mm}-${dd}`; }
