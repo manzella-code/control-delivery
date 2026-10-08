@@ -2,12 +2,16 @@
     <link rel="manifest" href="manifest.json">
     <script>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js?v=1.60.6');
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js?v=1.61.0')
+            .then((reg) => console.log('[SW] Registrado:', reg.scope))
+            .catch((err) => console.error('[SW] Error:', err));
+        });
       }
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.60.6</title>
+    <title>Control Delivery v1.61.0</title>
     <meta name="theme-color" content="#10b981">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -720,7 +724,7 @@
 
         <!-- VERSION BADGE: Movido dentro de mainApp para garantizar que respeta el flujo debajo del logo -->
         <div class="version-badge">
-            <span>Versión 1.60.6</span>
+            <span>Versión 1.61.0</span>
             <div class="header-buttons">
                 <div class="custom-dropdown">
                     <button id="langDropdownBtn" class="custom-dropdown-btn" onclick="toggleLangMenu()">Español ▾</button>
