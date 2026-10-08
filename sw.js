@@ -3,7 +3,7 @@
 //  Estrategia: Cache-First para estáticos, Network-only para APIs
 //  ⚠️ SUBE ESTE NÚMERO CADA VEZ QUE CAMBIES index.html, manifest o assets
 // ============================================================
-const CACHE_NAME = 'delivery-cache-v1.61.0';
+const CACHE_NAME = 'delivery-cache-v1.61.1';
 
 // Assets locales (tu dominio)
 const CORE_ASSETS = [
