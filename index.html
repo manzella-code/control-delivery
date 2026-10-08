@@ -3,7 +3,7 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('sw.js?v=1.61.0')
+          navigator.serviceWorker.register('sw.js?v=1.61.1')
             .then((reg) => console.log('[SW] Registrado:', reg.scope))
             .catch((err) => console.error('[SW] Error:', err));
         });
@@ -11,7 +11,7 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Delivery v1.61.0</title>
+    <title>Control Delivery v1.61.1</title>
     <meta name="theme-color" content="#10b981">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -218,34 +218,100 @@
             if(window.updateMainUI) window.updateMainUI();
         });
 
-        window.cloudGuardarTransaccion = async (nuevoRegistro) => {
-            if(!window.authUser) return;
-            try {
-                const docRef = await addDoc(collection(db, "usuarios", window.authUser.uid, "transacciones"), nuevoRegistro);
-                nuevoRegistro.firestoreId = docRef.id;
-                window.datos.unshift(nuevoRegistro); 
-                actualizarInterfaz();
-            } catch(e) { console.error("Error guardando en nube:", e); }
+            window.cloudGuardarTransaccion = (nuevoRegistro) => {
+               if (!window.authUser) return;
+
+               // 1. Crear un ID temporal para uso local
+               const tempId = 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+               nuevoRegistro.firestoreId = tempId;
+               nuevoRegistro._pending = true;
+
+               // 2. Actualizar UI INMEDIATAMENTE (antes de tocar Firestore)
+               window.datos.unshift(nuevoRegistro);
+               actualizarInterfaz();
+
+               // 3. Enviar a Firestore en background (SIN await)
+               const datosParaEnviar = { ...nuevoRegistro };
+               delete datosParaEnviar.firestoreId;
+               delete datosParaEnviar._pending;
+
+               addDoc(collection(db, "usuarios", window.authUser.uid, "transacciones"), datosParaEnviar)
+                  .then((docRef) => {
+                        const item = window.datos.find(d => d.firestoreId === tempId);
+                        if (item) {
+                            item.firestoreId = docRef.id;
+                            item._pending = false;
+                            actualizarInterfaz();
+                        }
+                    })
+                  .catch((e) => {
+                     console.error("Error guardando en nube:", e);
+                     const item = window.datos.find(d => d.firestoreId === tempId);
+                     if (item) {
+                         item._pending = false;
+                         item._error = true;
+                         actualizarInterfaz();
+                      }
+                  });
         };
 
-        window.cloudActualizarTransaccion = async (firestoreId, cambios) => {
-            if(!window.authUser || !firestoreId) return;
-            try {
-                await updateDoc(doc(db, "usuarios", window.authUser.uid, "transacciones", firestoreId), cambios);
-                const item = window.datos.find(d => d.firestoreId === firestoreId);
-                if(item) Object.assign(item, cambios);
-                actualizarInterfaz();
-            } catch(e) { console.error("Error actualizando en nube:", e); }
-        };
+            window.cloudActualizarTransaccion = (firestoreId, cambios) => {
+               if (!window.authUser || !firestoreId) return;
 
-        window.cloudEliminarTransaccion = async (firestoreId) => {
-            if(!window.authUser || !firestoreId) return;
-            try {
-                await deleteDoc(doc(db, "usuarios", window.authUser.uid, "transacciones", firestoreId));
-                window.datos = window.datos.filter(d => d.firestoreId !== firestoreId);
-                actualizarInterfaz();
-            } catch(e) { console.error("Error eliminando en nube:", e); }
-        };
+               // 1. Actualizar en memoria INMEDIATAMENTE
+               const item = window.datos.find(d => d.firestoreId === firestoreId);
+               if (item) {
+                  Object.assign(item, cambios);
+                  item._pending = true;
+                  actualizarInterfaz();
+               }
+
+               // 2. Si es un ID temporal, aún no está en Firestore — no hacer nada más
+               if (firestoreId.startsWith('local-')) return;
+
+               // 3. Enviar a Firestore en background (SIN await)
+               updateDoc(doc(db, "usuarios", window.authUser.uid, "transacciones", firestoreId), cambios)
+                   .then(() => {
+                       const it = window.datos.find(d => d.firestoreId === firestoreId);
+                       if (it) {
+                           it._pending = false;
+                           actualizarInterfaz();
+                       }
+                   })
+                   .catch((e) => {
+                       console.error("Error actualizando en nube:", e);
+                       const it = window.datos.find(d => d.firestoreId === firestoreId);
+                       if (it) {
+                           it._pending = false;
+                           it._error = true;
+                           actualizarInterfaz();
+                       }
+                   });
+       };
+
+          window.cloudEliminarTransaccion = (firestoreId) => {
+              if (!window.authUser || !firestoreId) return;
+
+              // 1. Quitar de memoria INMEDIATAMENTE
+              const itemEliminado = window.datos.find(d => d.firestoreId === firestoreId);
+              window.datos = window.datos.filter(d => d.firestoreId !== firestoreId);
+              actualizarInterfaz();
+
+              // 2. Si es un ID temporal (nunca llegó a Firestore), no hacer nada más
+              if (firestoreId.startsWith('local-')) return;
+
+              // 3. Enviar a Firestore en background (SIN await)
+              deleteDoc(doc(db, "usuarios", window.authUser.uid, "transacciones", firestoreId))
+                  .catch((e) => {
+                      console.error("Error eliminando en nube:", e);
+                      // Si falla, restaurar en la lista
+                      if (itemEliminado) {
+                          window.datos.unshift(itemEliminado);
+                          actualizarInterfaz();
+                          alert("No se pudo eliminar el registro. Se restauró.");
+                      }
+                 });
+      };
 
         window.cloudGuardarPerfilCloud = async (nuevoPerfil) => {
             if(!window.authUser) return;
@@ -724,7 +790,7 @@
 
         <!-- VERSION BADGE: Movido dentro de mainApp para garantizar que respeta el flujo debajo del logo -->
         <div class="version-badge">
-            <span>Versión 1.61.0</span>
+            <span>Versión 1.61.1</span>
             <div class="header-buttons">
                 <div class="custom-dropdown">
                     <button id="langDropdownBtn" class="custom-dropdown-btn" onclick="toggleLangMenu()">Español ▾</button>
@@ -1430,42 +1496,42 @@
         function formatDDMMYYYY(dateObj) { const dd = String(dateObj.getDate()).padStart(2, '0'); const mm = String(dateObj.getMonth() + 1).padStart(2, '0'); const yyyy = dateObj.getFullYear(); return `${dd}/${mm}/${yyyy}`; }
         function obtenerFechaSegura(d) { if (d.fechaTexto && !d.fechaTexto.includes('undefined')) return d.fechaTexto; const [y, m, day] = d.fecha.split('-'); return `${parseInt(day)}/${parseInt(m)}/${y}`; }
 
-        async function guardarEntrega() {
-            const input = document.getElementById('monto'); const monto = parseFloat(input.value);
-            const inputNota = document.getElementById('notaDelivery'); const nota = inputNota.value.trim();
-            const inputPedido = document.getElementById('numPedido'); const numPedido = inputPedido.value.trim();
-            const btn = document.getElementById('btnGuardar');
+        function guardarEntrega() {
+           const input = document.getElementById('monto');
+           const monto = parseFloat(input.value);
+           const inputNota = document.getElementById('notaDelivery');
+           const nota = inputNota.value.trim();
+           const inputPedido = document.getElementById('numPedido');
+           const numPedido = inputPedido.value.trim();
+           const btn = document.getElementById('btnGuardar');
 
-            if (!monto || monto <= 0) { mostrarMensaje('deliveryAlerta', t('msgInvalidAmount')); return; }
-            
-            btn.disabled = true;
-            btn.innerText = "Guardando...";
+           if (!monto || monto <= 0) {
+               mostrarMensaje('deliveryAlerta', t('msgInvalidAmount'));
+               return;
+           }
 
-            try {
-                if (editandoIndex !== null) {
-                    const item = window.datos[editandoIndex];
-                    await cloudActualizarTransaccion(item.firestoreId, { monto: monto, nota: nota, numPedido: numPedido });
-                    cancelarEdicion();
-                } else {
-                    const ahora = new Date();
-                    const nuevoItem = { 
-                        tipo: 'delivery', 
-                        monto, 
-                        nota: nota, 
-                        numPedido: numPedido,
-                        fecha: formatearFechaISO(ahora), 
-                        fechaTexto: formatDDMMYYYY(ahora), 
-                        hora: ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), 
-                        timestamp: Date.now() 
-                    };
-                    await cloudGuardarTransaccion(nuevoItem);
-                    playCoinSound();
-                }
-                input.value = ''; inputNota.value = ''; inputPedido.value = '';
-            } finally {
-                btn.disabled = false;
-                btn.innerText = editandoIndex !== null ? t('btnEditDelivery').split(' ')[0] : t('btnAddDelivery');
-            }
+           if (editandoIndex !== null) {
+               const item = window.datos[editandoIndex];
+               cloudActualizarTransaccion(item.firestoreId, { monto: monto, nota: nota, numPedido: numPedido });
+               cancelarEdicion();
+           } else {
+               const ahora = new Date();
+               const nuevoItem = {
+                   tipo: 'delivery',
+                   monto,
+                   nota: nota,
+                   numPedido: numPedido,
+                   fecha: formatearFechaISO(ahora),
+                   fechaTexto: formatDDMMYYYY(ahora),
+                   hora: ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                   timestamp: Date.now()
+               };
+               cloudGuardarTransaccion(nuevoItem);
+               playCoinSound();
+          }
+          input.value = '';
+          inputNota.value = '';
+          inputPedido.value = '';
         }
 
         function editarEntrega(index) {
@@ -1496,28 +1562,31 @@
             });
         }
 
-        async function guardarGasto() {
-            const tipoGasto = document.getElementById('tipoGasto').value; const input = document.getElementById('montoGasto'); const monto = parseFloat(input.value);
-            const btn = document.getElementById('btnGuardarGasto');
-            if (!monto || monto <= 0) { mostrarMensaje('gastoAlerta', t('msgInvalidExpense')); return; }
-            
-            btn.disabled = true; btn.innerText = "Guardando...";
+        function guardarGasto() {
+           const tipoGasto = document.getElementById('tipoGasto').value;
+           const input = document.getElementById('montoGasto');
+           const monto = parseFloat(input.value);
+           const btn = document.getElementById('btnGuardarGasto');
+           if (!monto || monto <= 0) { mostrarMensaje('gastoAlerta', t('msgInvalidExpense')); return; }
 
-            try {
-                if (editandoGastoIndex !== null) {
-                    const item = window.datos[editandoGastoIndex];
-                    await cloudActualizarTransaccion(item.firestoreId, { monto: monto, tipoGasto: tipoGasto });
-                    cancelarEdicionGasto();
-                } else {
-                    const ahora = new Date();
-                    const nuevoItem = { tipo: 'gasto', tipoGasto: tipoGasto, monto, fecha: formatearFechaISO(ahora), fechaTexto: formatDDMMYYYY(ahora), hora: ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), timestamp: Date.now() };
-                    await cloudGuardarTransaccion(nuevoItem);
-                }
-                input.value = '';
-            } finally {
-                btn.disabled = false;
-                btn.innerText = editandoGastoIndex !== null ? t('btnEditDelivery').split(' ')[0] : t('btnAddExpense');
-            }
+           if (editandoGastoIndex !== null) {
+               const item = window.datos[editandoGastoIndex];
+               cloudActualizarTransaccion(item.firestoreId, { monto: monto, tipoGasto: tipoGasto });
+               cancelarEdicionGasto();
+           } else {
+               const ahora = new Date();
+               const nuevoItem = {
+                   tipo: 'gasto',
+                   tipoGasto: tipoGasto,
+                   monto,
+                   fecha: formatearFechaISO(ahora),
+                   fechaTexto: formatDDMMYYYY(ahora),
+                   hora: ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                   timestamp: Date.now()
+               };
+               cloudGuardarTransaccion(nuevoItem);
+           }
+           input.value = '';
         }
 
         function editarGasto(index) {
